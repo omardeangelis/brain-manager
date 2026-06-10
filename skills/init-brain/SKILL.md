@@ -33,12 +33,12 @@ else
     [ -f "$repo/dist/bin.js" ] && BRAIN="node $repo/dist/bin.js" && break
   done
 fi
-[ -z "$BRAIN" ] && BRAIN="npx -y @omardeangelis/brain-manager"
+[ -z "$BRAIN" ] && BRAIN="npx -y brain-manager"
 echo "BRAIN command: $BRAIN"
 eval "$BRAIN --version"
 ```
 
-**Remember the printed command.** Shell state does not persist between your commands, so wherever this skill or its references say `$BRAIN`, substitute the resolved command literally (e.g. `node /path/to/brain-manager/dist/bin.js scan`). If even the npx fallback fails, stop and tell the user to install the CLI (`npm i -g @omardeangelis/brain-manager`).
+**Remember the printed command.** Shell state does not persist between your commands, so wherever this skill or its references say `$BRAIN`, substitute the resolved command literally (e.g. `node /path/to/brain-manager/dist/bin.js scan`). If even the npx fallback fails, stop and tell the user to install the CLI (`npm i -g brain-manager`).
 
 ## Step 1 — Scan and choose the scenario
 

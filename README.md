@@ -10,7 +10,7 @@ Two layers, by design:
 ## CLI
 
 ```bash
-npx -y @omardeangelis/brain-manager init      # or: npm i -g @omardeangelis/brain-manager
+npx -y brain-manager init      # or: npm i -g brain-manager
 ```
 
 | Command | What it does |

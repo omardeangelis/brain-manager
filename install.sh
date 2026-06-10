@@ -44,9 +44,9 @@ fi
 if command -v npm >/dev/null 2>&1; then
   echo "Building the brain CLI..."
   (cd "$REPO_DIR" && npm install --silent && npm run build --silent) \
-    || echo "WARN: CLI build failed — the skill will fall back to npx @omardeangelis/brain-manager" >&2
+    || echo "WARN: CLI build failed — the skill will fall back to npx brain-manager" >&2
 else
-  echo "WARN: npm not found — the skill will fall back to npx @omardeangelis/brain-manager" >&2
+  echo "WARN: npm not found — the skill will fall back to npx brain-manager" >&2
 fi
 
 # Pick a destination skills directory if not given.

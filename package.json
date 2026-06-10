@@ -1,5 +1,5 @@
 {
-  "name": "@omardeangelis/brain-manager",
+  "name": "brain-manager",
   "version": "0.1.0",
   "description": "CLI that bootstraps and maintains the brain/ knowledge base and its spec-driven skill suite in any project.",
   "type": "module",
