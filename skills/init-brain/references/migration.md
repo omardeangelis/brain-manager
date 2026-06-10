@@ -1,20 +1,16 @@
 # Migration
 
-Absorb a prior knowledge/docs structure into `brain/`, repoint skills, and retire the old sources. Migration is partly destructive — **inventory and confirm before moving or deleting.**
+Absorb a prior knowledge/docs structure into `brain/`, repoint skills, and retire the old sources. Migration is partly destructive — **inventory and confirm before moving or deleting.** Assumes `$BRAIN` is resolved (SKILL.md Step 0) and `$BRAIN scan` has run.
 
-## 1. Discover the prior structure
+## 1. Refine the discovery
 
-Search the repo (skip `node_modules`, `.venv`, `dist`, `build`, `.git`) for legacy stores. Candidates:
+`$BRAIN scan` already lists `legacy-store`, `loose-spec`, and `installed-skill` findings. Read into the flagged locations and classify what each actually holds:
 
 - Knowledge/docs: `docs/`, `wiki/`, `.notes/`, `knowledge/`, `adr/`, `rfcs/`, `decisions/`, loose `*.md` design notes.
 - Specs: an existing `specs/` tree, scattered `*-spec.md` / `SPEC.md` outside `brain/`.
 - Planning/chore: `planning/`, `roadmap*`, `tech-stack*`, `backlog*`, `mvp*`.
 - Tech debt: `tech-debt*`, `TODO*`, `KNOWN-ISSUES*`.
-- Existing skill copies that reference legacy paths: grep installed skills for the legacy roots you found (e.g. `docs/`, `wiki/`).
-
-```bash
-grep -rIl --exclude-dir={node_modules,.venv,.git,dist,build} -E "" docs wiki .notes knowledge specs 2>/dev/null | head
-```
+- Project-owned skills that reference legacy paths: grep the skills directory for the legacy roots you found.
 
 ## 2. Build an inventory + mapping, then CONFIRM
 
@@ -30,9 +26,13 @@ Present the user a table: each discovered source → its proposed destination in
 
 Do not move anything until the user approves the mapping. This content was not authored by you and the next steps delete the originals — confirm explicitly.
 
-## 3. Scaffold brain (if absent)
+## 3. Scaffold + install via the CLI
 
-If `brain/` does not exist yet, run [fresh-init.md](fresh-init.md) steps 2–3 first so the destination layout and root pages exist. Do **not** overwrite an existing populated brain.
+```bash
+$BRAIN init
+```
+
+Additive: existing files are kept (reported as `kept`/`adopted`), so a populated brain is never overwritten. Pre-existing hand-installed suite skills are **adopted** into the manifest; after the migration is done, offer the user `$BRAIN upgrade` to sync them to the bundled versions (conflicts are skipped unless `--force`).
 
 ## 4. Move content (preserve history)
 
@@ -47,22 +47,15 @@ While moving:
 - Keep `[[wikilinks]]` working — fix paths that break after the move.
 - Do **not** rewrite the substance of specs/domain knowledge; this is a move, not a rewrite.
 
-## 5. Repoint existing skills
+## 5. Repoint project-owned skills
 
-Any skill already installed in the repo that references the legacy roots (`docs/`, `wiki/`, etc.) must point at `brain/` instead:
+The suite skills are handled by the CLI (`init`/`upgrade`). For **other** skills the project owns that reference the old paths, update those references to the new `brain/...` locations. Grep for the legacy roots inside the skills directory and fix each hit.
 
-- The seven managed process skills are replaced wholesale in Step 4 of `SKILL.md` (install-skills) with brain-wired generic versions — no manual repoint needed. The agent-browser tool skill is installed alongside them (an existing project-specific copy is kept, not clobbered).
-- For **other** skills the project owns that reference the old paths, update those references to the new `brain/...` locations. Grep for the legacy roots inside the skills directory and fix each hit.
-
-## 6. Install the skill suite
-
-Return to `SKILL.md` Step 4 → [install-skills.md](install-skills.md), then Step 5 advisors.
-
-## 7. Update brain/index.md
+## 6. Update brain/index.md
 
 Reflect the migrated reality: list migrated domains (with their spec maps), specs per domain, and any tech-debt pages. Append a migration entry to `brain/log.md`.
 
-## 8. Delete old sources — only after verification
+## 7. Delete old sources — only after verification
 
 Before deleting anything, prove the content is now in `brain/`:
 
@@ -78,3 +71,7 @@ git rm -r <old-root>     # or: rm -rf <old-root> if untracked
 ```
 
 Report exactly what was deleted. If a check fails or anything is ambiguous, stop and surface it rather than deleting.
+
+## 8. Continue
+
+Return to `SKILL.md` Step 3 (advisors).

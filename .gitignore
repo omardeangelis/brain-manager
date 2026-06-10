@@ -6,3 +6,7 @@
 *~
 .idea/
 .vscode/
+
+# Node
+node_modules/
+dist/

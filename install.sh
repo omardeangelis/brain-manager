@@ -34,10 +34,19 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-if [ ! -d "$SRC/assets/brain" ]; then
+if [ ! -f "$SRC/SKILL.md" ]; then
   echo "Error: skill source not found at $SRC" >&2
   echo "Run this script from inside the brain-manager repo." >&2
   exit 1
+fi
+
+# Build the CLI so the skill's local-repo fallback (dist/bin.js) works.
+if command -v npm >/dev/null 2>&1; then
+  echo "Building the brain CLI..."
+  (cd "$REPO_DIR" && npm install --silent && npm run build --silent) \
+    || echo "WARN: CLI build failed — the skill will fall back to npx @omardeangelis/brain-manager" >&2
+else
+  echo "WARN: npm not found — the skill will fall back to npx @omardeangelis/brain-manager" >&2
 fi
 
 # Pick a destination skills directory if not given.

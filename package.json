@@ -1,0 +1,42 @@
+{
+  "name": "@omardeangelis/brain-manager",
+  "version": "0.1.0",
+  "description": "CLI that bootstraps and maintains the brain/ knowledge base and its spec-driven skill suite in any project.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/omardeangelis/brain-manager.git"
+  },
+  "bin": {
+    "brain": "./dist/bin.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "assets",
+    "skills"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "@effect/cli": "^0.75.2",
+    "@effect/platform": "^0.96.1",
+    "@effect/platform-node": "^0.107.0",
+    "effect": "^3.21.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  }
+}
