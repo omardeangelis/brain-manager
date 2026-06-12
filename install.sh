@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 #
-# install.sh — install the init-brain skill into your Claude Code skills directory.
+# install.sh — DEV / MAINTAINER install of the init-brain skill (symlink).
 #
-# By default this creates a SYMLINK so `git pull` in this repo keeps the skill
-# up to date. Pass --copy to install an independent copy instead.
+# End users do NOT need this script or a clone: run `npx -y brain-manager
+# install-skill` instead, which copies the skill out of the published package.
+#
+# This script is for hacking on brain-manager: by default it creates a SYMLINK
+# into your skills dir so edits in this repo are picked up live. Pass --copy to
+# install an independent copy instead.
 #
 # Usage:
 #   ./install.sh            # symlink into the detected skills dir
@@ -78,4 +82,5 @@ else
   echo "Linked $SKILL_NAME -> $DEST  (-> $SRC)"
 fi
 
-echo "Done. Run /init-brain in any project to bootstrap its brain."
+echo "Done (dev symlink). Run /init-brain in any project to bootstrap its brain."
+echo "End users: 'npx -y brain-manager install-skill' instead — no clone needed."

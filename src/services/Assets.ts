@@ -54,6 +54,15 @@ export class Assets extends Effect.Service<Assets>()("Assets", {
       skills.set(name, yield* loadDir(path.join(assetsDir, "skills", name), name))
     }
 
-    return { brain, skills, skillNames }
+    // The init-brain orchestrator skill ships at <root>/skills/init-brain (not
+    // under assets/). `brain install-skill` copies it into the user's global
+    // skills dir so /init-brain is available without cloning this repo. Keyed
+    // as "init-brain/<rel>" — same shape as the suite skills above.
+    const orchestratorDir = path.join(PACKAGE_ROOT, "skills", "init-brain")
+    const initBrainSkill = (yield* fs.exists(path.join(orchestratorDir, "SKILL.md")))
+      ? yield* loadDir(orchestratorDir, "init-brain")
+      : new Map<string, AssetFile>()
+
+    return { brain, skills, skillNames, initBrainSkill }
   })
 }) {}

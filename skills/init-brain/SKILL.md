@@ -40,18 +40,18 @@ eval "$BRAIN --version"
 
 **Remember the printed command.** Shell state does not persist between your commands, so wherever this skill or its references say `$BRAIN`, substitute the resolved command literally (e.g. `node /path/to/brain-manager/dist/bin.js scan`). If even the npx fallback fails, stop and tell the user to install the CLI (`npm i -g brain-manager`).
 
-## Step 1 — Scan and choose the scenario
+## Step 1 — Scan, then ask the user what they want
 
 ```bash
 $BRAIN scan
 ```
 
-Decide between the two modes from the scan findings and **state your choice with its evidence** before acting:
+**Always surface an explicit choice to the user** (use the scan findings as the evidence behind your recommendation — do not decide silently):
 
-- **Fresh init** — no `brain/` and no legacy store worth absorbing (`legacy-store` / `loose-spec` findings empty or clearly irrelevant).
-- **Migration** — the scan surfaced legacy doc stores, loose specs/planning/tech-debt files, or installed skills pointing at non-`brain/` paths.
+- **A) Skills + fresh scaffold (fresh init)** — install the spec-driven skill suite and a fresh, empty `brain/`. Recommend this when the scan shows no `brain/` and no legacy store worth absorbing (`legacy-store` / `loose-spec` empty or clearly irrelevant).
+- **B) Reorganize existing knowledge (migration)** — fold existing docs / loose specs / tech-debt into `brain/`, repoint skills, and remove the old sources after confirmation. Recommend this when the scan surfaced legacy doc stores, loose spec/planning/tech-debt files, or installed skills pointing at non-`brain/` paths.
 
-If it is ambiguous, ask the user which mode they want — do not guess when legacy content could be destroyed.
+State your recommendation with its evidence, but let the user pick. **Never choose migration silently** — legacy content could be moved or deleted.
 
 ## Step 2 — Run the chosen scenario
 
