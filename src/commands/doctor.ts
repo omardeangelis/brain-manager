@@ -4,9 +4,10 @@ import { Console, Effect } from "effect"
 import { contentHash } from "../core/hash.js"
 import { MANIFEST_PATH, decodeManifest } from "../core/manifest.js"
 import { planUpgrade } from "../core/plan.js"
+import { CANONICAL_SKILLS_DIR } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
 import { Assets, type AssetFile } from "../services/Assets.js"
-import { exists, readTextOrNull, walkFiles } from "../services/fsx.js"
+import { exists, pathFact, readTextOrNull, walkFiles } from "../services/fsx.js"
 
 /**
  * `brain doctor` — read-only health check: brain structure, unstamped
@@ -23,8 +24,7 @@ const REQUIRED_FILES = [
   "brain/AGENTS.md",
   "brain/CLAUDE.md",
   "brain/index.md",
-  "brain/log.md",
-  "brain/specs/CONSTITUTION.md"
+  "brain/log.md"
 ]
 const REQUIRED_DIRS = ["brain/raw", "brain/specs", "brain/domains", "brain/chore", "brain/tech-debt"]
 
@@ -113,6 +113,28 @@ export const doctorCommand = Command.make("doctor", { json }, (opts) =>
           }
         }
         notes.push(`manifest version ${manifest.value.packageVersion}, skills directory ${manifest.value.skillsDir}`)
+
+        // --- provider-agnostic layout ----------------------------------------
+        if (manifest.value.skillsDir !== CANONICAL_SKILLS_DIR) {
+          lines.push({
+            path: manifest.value.skillsDir,
+            status: "legacy-layout",
+            note: `not the canonical ${CANONICAL_SKILLS_DIR} — run \`brain upgrade\` to migrate`
+          })
+          problems++
+        }
+        for (const link of manifest.value.links) {
+          const fact = yield* pathFact(link.path)
+          if (fact.kind !== "symlink") {
+            lines.push({ path: link.path, status: "missing-link", note: `expected symlink → ${link.target}` })
+            problems++
+          } else if (fact.target !== link.target) {
+            lines.push({ path: link.path, status: "wrong-link", note: `→ ${fact.target ?? "?"}, expected ${link.target}` })
+            problems++
+          } else {
+            lines.push({ path: link.path, status: "ok", note: `→ ${link.target}` })
+          }
+        }
       }
     }
 

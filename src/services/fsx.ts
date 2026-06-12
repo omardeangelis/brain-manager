@@ -1,6 +1,7 @@
 import { FileSystem, Path } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
 import { Effect } from "effect"
+import type { DiskFact } from "../core/link-plan.js"
 
 /**
  * Small filesystem helpers on top of @effect/platform's FileSystem service.
@@ -56,3 +57,42 @@ export const readTextOrNull = (file: string) =>
     const fs = yield* FileSystem.FileSystem
     return (yield* fs.exists(file)) ? yield* fs.readFileString(file) : null
   })
+
+/**
+ * Classify a path as absent / file / dir / symlink WITHOUT following symlinks.
+ * `readLink` succeeds only on a symlink (even a dangling one), so it is the
+ * symlink probe; `stat` (which follows links) then distinguishes file vs dir.
+ */
+export const pathFact = (
+  path: string
+): Effect.Effect<DiskFact, never, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const link = yield* fs.readLink(path).pipe(Effect.option)
+    if (link._tag === "Some") return { kind: "symlink", target: link.value }
+    const stat = yield* fs.stat(path).pipe(Effect.option)
+    if (stat._tag === "None") return { kind: "absent" }
+    return { kind: stat.value.type === "Directory" ? "dir" : "file" }
+  })
+
+/** Create a symlink at `linkPath` pointing to `target` (Node order: symlink(target, path)). Parents are created. */
+export const symlinkRel = (target: string, linkPath: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    yield* fs.makeDirectory(path.dirname(linkPath), { recursive: true })
+    yield* fs.symlink(target, linkPath)
+  })
+
+/** Move a path, creating the destination's parent directories first. */
+export const renamePath = (from: string, to: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    yield* fs.makeDirectory(path.dirname(to), { recursive: true })
+    yield* fs.rename(from, to)
+  })
+
+/** Remove a file, symlink, or (with `recursive`) a directory. */
+export const removePath = (target: string, recursive = false) =>
+  Effect.flatMap(FileSystem.FileSystem, (fs) => fs.remove(target, { recursive }))

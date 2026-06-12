@@ -16,6 +16,19 @@ Primary skills here: `create-spec`, `create-plan`, `implement-spec`, `docs-maint
 - Do not hand-write `domains/<domain>/flows/` or `domains/<domain>/concepts/` pages when that ingest workflow applies.
 - `SPEC.md` and `IMPLEMENTATION-NOTES.md` remain the source material, but the ingest orchestrator may update their frontmatter/link bookkeeping (`ingested`, `last_ingested`, backlinks) as part of the pipeline.
 
+## Spec-Driven Rules
+
+Non-negotiables every spec-driven skill respects:
+
+- Specs live in the problem space — the *what* and *why*, never the *how*.
+- One `SPEC.md` maps to one capability/epic; when child stories exist, their requirements are unified beneath it.
+- No code is written during `create-spec` or `create-plan`. Implementation happens only in `implement-spec`.
+- Tests describe behavior through public interfaces (see `tdd`). No horizontal slicing (all-tests-then-all-code).
+- Persistent implementation drift is tracked in `tech-debt/<domain>/<spec>.md`, not buried in spec folders.
+- Domain knowledge in `domains/` is written by `docs-maintenance`, not hand-authored.
+
+> Project-specific gates (build/test/lint commands, review gates, contract/codegen chains) live in the repo-root `AGENTS.md`, not here — that is the file every AI tool reads.
+
 ## Directory Conventions
 
 ### `raw/` — Immutable Sources
@@ -30,7 +43,6 @@ Human-authored source material. Agent reads but **never edits**.
 
 PM-authored specifications organized by domain. Agents should treat their product intent as source material and should not rewrite requirements casually, but the ingest orchestrator may update frontmatter/link bookkeeping when processing them into domain knowledge.
 
-- `specs/CONSTITUTION.md` — repo-level implementation rules and sanity checks for spec-driven skills
 - `specs/<domain>/<domain>-specs.md` — domain spec page map (entry point for discovery)
 - `specs/<domain>/<spec-name>/SPEC.md` — individual spec file
 - `specs/<domain>/<spec-name>/PLAN.md` — optional implementation plan for that spec

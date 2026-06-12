@@ -2,12 +2,13 @@ import { Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { ADVISORS_START, carryAdvisorsOver, hasAdvisorMarkers } from "../core/advisors.js"
 import { contentHash } from "../core/hash.js"
-import { MANIFEST_PATH, type Manifest, type ManifestEntry, decodeManifest, encodeManifest } from "../core/manifest.js"
+import { MANIFEST_PATH, type Manifest, type ManifestEntry, type ManifestLink, decodeManifest, encodeManifest } from "../core/manifest.js"
+import { CANONICAL_SKILLS_DIR } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
 import { stampToday } from "../core/stamp.js"
 import { Assets } from "../services/Assets.js"
 import { exists, readTextOrNull, writeText } from "../services/fsx.js"
-import { detectSkillsDir } from "../services/workspace.js"
+import { resolveProviders, runLink } from "../services/linker.js"
 import { VERSION } from "../version.js"
 
 /**
@@ -33,20 +34,26 @@ const json = Options.boolean("json").pipe(
 )
 const skillsDir = Options.text("skills-dir").pipe(
   Options.withDescription(
-    "Skills directory to install into (default: .agents/skills if present, else .claude/skills)."
+    "Canonical skills directory to install into (advanced; default: .agents/skills). Provider symlinks are only wired for the default."
+  ),
+  Options.optional
+)
+const providers = Options.text("providers").pipe(
+  Options.withDescription(
+    "Comma-separated provider ids to wire into the .agents/-canonical layout (e.g. claude,codex,cursor). Default: auto-detect, else claude."
   ),
   Options.optional
 )
 
 export const initCommand = Command.make(
   "init",
-  { force, json, skillsDir },
+  { force, json, skillsDir, providers },
   (opts) =>
     Effect.gen(function* () {
       const assets = yield* Assets
       const targetSkillsDir = Option.isSome(opts.skillsDir)
         ? opts.skillsDir.value
-        : yield* detectSkillsDir
+        : CANONICAL_SKILLS_DIR
 
       const lines: Array<ReportLine> = []
       const entries: Array<ManifestEntry> = []
@@ -147,6 +154,24 @@ export const initCommand = Command.make(
         })
       }
 
+      // --- provider wiring (.agents/-canonical layout) ----------------------
+      // Only for the default canonical location; a --skills-dir override opts out.
+      let providerIds: Array<string> = []
+      let links: Array<ManifestLink> = []
+      const canonical = targetSkillsDir === CANONICAL_SKILLS_DIR
+      if (canonical) {
+        const selected = yield* resolveProviders(opts.providers)
+        const result = yield* runLink({
+          providers: selected,
+          currentSkillsDir: targetSkillsDir,
+          force: opts.force,
+          dryRun: false
+        })
+        for (const l of result.lines) lines.push(l)
+        providerIds = selected.map((p) => p.id)
+        links = result.links
+      }
+
       // --- manifest --------------------------------------------------------
       const now = new Date().toISOString()
       const previous = yield* readTextOrNull(MANIFEST_PATH)
@@ -161,7 +186,9 @@ export const initCommand = Command.make(
         createdAt,
         updatedAt: now,
         skillsDir: targetSkillsDir,
-        files: entries
+        files: entries,
+        providers: providerIds,
+        links
       }
       yield* writeText(MANIFEST_PATH, yield* encodeManifest(manifest))
 
@@ -169,7 +196,13 @@ export const initCommand = Command.make(
         command: "init",
         lines,
         notes: [
-          `skills directory: ${targetSkillsDir}`,
+          `canonical skills directory: ${targetSkillsDir}`,
+          ...(canonical
+            ? [`providers wired: ${providerIds.join(", ") || "(none)"}`]
+            : ["--skills-dir override: provider symlinks not wired (run `brain link` to wire them)"]),
+          ...(Option.isSome(opts.providers) && !canonical
+            ? ["--providers ignored because --skills-dir was overridden"]
+            : []),
           `manifest written to ${MANIFEST_PATH}`,
           "`$simplify` is expected as a global/built-in skill — not bundled",
           "the agent-browser CLI is a separate global install (`npm i -g agent-browser`) — only needed for browser validation",

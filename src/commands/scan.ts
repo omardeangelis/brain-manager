@@ -2,9 +2,10 @@ import { Command, Options } from "@effect/cli"
 import { FileSystem, Path } from "@effect/platform"
 import { Console, Effect } from "effect"
 import { MANIFEST_PATH, decodeManifest } from "../core/manifest.js"
+import { CANONICAL_SKILLS_DIR, PROVIDERS, skillCapable } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
 import { Assets } from "../services/Assets.js"
-import { exists, readTextOrNull } from "../services/fsx.js"
+import { exists, pathFact, readTextOrNull } from "../services/fsx.js"
 
 /**
  * `brain scan` — the mechanical half of mode-detection and migration
@@ -132,8 +133,28 @@ export const scanCommand = Command.make("scan", { json }, (opts) =>
       }
     }
 
+    // --- AI providers + canonical layout ----------------------------------
+    const canon = yield* pathFact(CANONICAL_SKILLS_DIR)
+    lines.push({
+      path: CANONICAL_SKILLS_DIR,
+      status: "canonical-skills",
+      note: canon.kind === "absent" ? "absent — not yet on the .agents/ layout" : `present (${canon.kind})`
+    })
+    for (const p of PROVIDERS) {
+      const dirPresent = p.dir !== null && p.dir !== ".github" && (yield* exists(p.dir))
+      const filePresent = p.rootFile !== null && (yield* exists(p.rootFile))
+      if (!dirPresent && !filePresent) continue
+      const layer = skillCapable(p) ? "skills-capable" : "router-only"
+      let wired = skillCapable(p) ? "skills not linked" : "reads AGENTS.md"
+      if (skillCapable(p) && p.skills !== null) {
+        const f = yield* pathFact(p.skills)
+        wired = f.kind === "symlink" ? `skills → ${f.target ?? "?"}` : f.kind === "dir" ? "skills dir present (not symlinked)" : "skills not linked"
+      }
+      lines.push({ path: p.dir ?? p.rootFile!, status: "provider", note: `${p.label} (${p.id}) — ${layer}; ${wired}` })
+    }
+
     notes.push(
-      "scan is mechanical: deciding fresh-init vs migration, mapping legacy content into brain/, and classifying advisor agents is the LLM's job (see the init-brain skill)"
+      "scan is mechanical: deciding fresh-init vs migration, which providers to wire, mapping legacy content into brain/, and classifying advisor agents is the LLM's job (see the init-brain skill)"
     )
 
     const report = { command: "scan", lines, notes, ok: true }
