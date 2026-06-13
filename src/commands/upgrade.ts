@@ -2,13 +2,15 @@ import { Command, Options } from "@effect/cli"
 import { Console, Effect } from "effect"
 import { carryAdvisorsOver, hasAdvisorMarkers } from "../core/advisors.js"
 import { contentHash } from "../core/hash.js"
-import { MANIFEST_PATH, type Manifest, type ManifestEntry, decodeManifest, encodeManifest } from "../core/manifest.js"
+import { MANIFEST_PATH, type Manifest, type ManifestEntry, decodeManifest, encodeManifest, rewriteSkillsDir } from "../core/manifest.js"
 import { planUpgrade, type UpgradeAction } from "../core/plan.js"
+import { CANONICAL_SKILLS_DIR, type Provider, byId, providerForSkillsDir, uniqueProviders } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
 import { stampToday } from "../core/stamp.js"
 import { CliError } from "../errors.js"
 import { Assets, type AssetFile } from "../services/Assets.js"
 import { readTextOrNull, writeText } from "../services/fsx.js"
+import { detectProviders, runLink } from "../services/linker.js"
 import { VERSION } from "../version.js"
 
 /**
@@ -28,6 +30,9 @@ const dryRun = Options.boolean("dry-run").pipe(
 const json = Options.boolean("json").pipe(
   Options.withDescription("Emit the report as JSON (machine/agent friendly).")
 )
+const noMigrate = Options.boolean("no-migrate").pipe(
+  Options.withDescription("Skip the automatic migration to the .agents/-canonical layout.")
+)
 
 const STATUS: Record<UpgradeAction["_tag"], string> = {
   Install: "installed",
@@ -41,7 +46,7 @@ const STATUS: Record<UpgradeAction["_tag"], string> = {
 
 export const upgradeCommand = Command.make(
   "upgrade",
-  { force, dryRun, json },
+  { force, dryRun, json, noMigrate },
   (opts) =>
     Effect.gen(function* () {
       const assets = yield* Assets
@@ -52,9 +57,40 @@ export const upgradeCommand = Command.make(
           message: `no manifest at ${MANIFEST_PATH} — run \`brain init\` first`
         })
       }
-      const manifest = yield* decodeManifest(manifestRaw).pipe(
+      let manifest = yield* decodeManifest(manifestRaw).pipe(
         Effect.mapError((e) => new CliError({ message: `unreadable manifest: ${e.message}` }))
       )
+
+      // --- migrate legacy layout to .agents/-canonical ----------------------
+      // Installs from before the provider-agnostic layout have skills under a
+      // provider dir (e.g. .claude/skills) and no `.agents/`. Relocate them to
+      // the canonical dir, symlink the old path back, and re-point the manifest.
+      const migrationLines: Array<ReportLine> = []
+      if (manifest.skillsDir !== CANONICAL_SKILLS_DIR && !opts.noMigrate) {
+        const owner = providerForSkillsDir(manifest.skillsDir)
+        const recorded = manifest.providers.map(byId).filter((p): p is Provider => p !== undefined)
+        const detected = yield* detectProviders
+        const providers = uniqueProviders([...(owner ? [owner] : []), ...recorded, ...detected])
+
+        const result = yield* runLink({
+          providers,
+          currentSkillsDir: manifest.skillsDir,
+          force: false,
+          dryRun: opts.dryRun
+        })
+        for (const l of result.lines) migrationLines.push(l)
+
+        const moved = result.actions.find((a) => a._tag === "MigrateSkills")
+        manifest = {
+          ...manifest,
+          skillsDir: CANONICAL_SKILLS_DIR,
+          files: moved && moved._tag === "MigrateSkills"
+            ? rewriteSkillsDir(manifest.files, moved.from, moved.to)
+            : manifest.files,
+          providers: providers.map((p) => p.id),
+          links: result.links
+        }
+      }
 
       // Bundled assets, keyed by their path in this project.
       const assetFiles = new Map<string, AssetFile>(assets.brain)
@@ -153,17 +189,23 @@ export const upgradeCommand = Command.make(
           createdAt: manifest.createdAt,
           updatedAt: now,
           skillsDir: manifest.skillsDir,
-          files: entries.sort((a, b) => a.path.localeCompare(b.path))
+          files: entries.sort((a, b) => a.path.localeCompare(b.path)),
+          providers: manifest.providers,
+          links: manifest.links
         }
         yield* writeText(MANIFEST_PATH, yield* encodeManifest(next))
       }
 
-      const conflicts = lines.filter((l) => l.status === "conflict").length
+      const allLines = [...migrationLines, ...lines]
+      const conflicts = allLines.filter((l) => l.status === "conflict").length
       const report = {
         command: opts.dryRun ? "upgrade --dry-run" : "upgrade",
-        lines,
+        lines: allLines,
         notes: [
           `manifest: ${manifest.packageVersion} -> ${VERSION}`,
+          ...(migrationLines.length > 0
+            ? [`migrated to the .agents/-canonical layout (skills now at ${CANONICAL_SKILLS_DIR})`]
+            : []),
           ...(opts.dryRun ? ["dry run — nothing was written"] : []),
           ...(conflicts > 0 ? [`${conflicts} conflict(s) skipped — re-run with --force to overwrite`] : [])
         ],

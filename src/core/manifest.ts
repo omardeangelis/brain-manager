@@ -23,16 +23,39 @@ export const ManifestEntry = Schema.Struct({
 })
 export type ManifestEntry = typeof ManifestEntry.Type
 
+/** A symlink brain-manager created to wire a provider into the canonical layout. */
+export const ManifestLink = Schema.Struct({
+  path: Schema.String,
+  target: Schema.String,
+  kind: Schema.Literal("skills", "router")
+})
+export type ManifestLink = typeof ManifestLink.Type
+
 export const Manifest = Schema.Struct({
   packageVersion: Schema.String,
   createdAt: Schema.String,
   updatedAt: Schema.String,
   skillsDir: Schema.String,
-  files: Schema.Array(ManifestEntry)
+  files: Schema.Array(ManifestEntry),
+  // Optional so manifests written before the provider-agnostic layout still decode.
+  providers: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] }),
+  links: Schema.optionalWith(Schema.Array(ManifestLink), { default: () => [] })
 })
 export type Manifest = typeof Manifest.Type
 
 export const MANIFEST_PATH = "brain/.brain-manifest.json"
+
+/** Re-prefix every file path under `from` to `to` (used when skills are relocated to the canonical dir). */
+export const rewriteSkillsDir = (
+  files: ReadonlyArray<ManifestEntry>,
+  from: string,
+  to: string
+): Array<ManifestEntry> =>
+  files.map((f) =>
+    f.path === from || f.path.startsWith(`${from}/`)
+      ? { ...f, path: `${to}${f.path.slice(from.length)}` }
+      : f
+  )
 
 export const decodeManifest = Schema.decodeUnknown(Schema.parseJson(Manifest))
 export const encodeManifest = Schema.encode(Schema.parseJson(Manifest, { space: 2 }))
