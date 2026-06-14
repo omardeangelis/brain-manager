@@ -3,6 +3,7 @@ import { Effect, Option } from "effect"
 import { type LinkAction, type DiskFact, expectedLinks, planLink } from "../core/link-plan.js"
 import type { ManifestLink } from "../core/manifest.js"
 import {
+  CANONICAL_AGENTS_DIR,
   CANONICAL_ROUTER,
   CANONICAL_SKILLS_DIR,
   PROVIDERS,
@@ -85,10 +86,11 @@ const relevantPaths = (
   providers: ReadonlyArray<Provider>,
   currentSkillsDir: string | null
 ): Array<string> => {
-  const set = new Set<string>([CANONICAL_SKILLS_DIR, CANONICAL_ROUTER])
+  const set = new Set<string>([CANONICAL_SKILLS_DIR, CANONICAL_AGENTS_DIR, CANONICAL_ROUTER])
   if (currentSkillsDir !== null) set.add(currentSkillsDir)
   for (const p of providers) {
     if (p.skills !== null) set.add(p.skills)
+    if (p.agents != null) set.add(p.agents)
     if (p.rootFile !== null) set.add(p.rootFile)
   }
   return [...set]
@@ -114,6 +116,12 @@ const executeAction = (action: LinkAction, dryRun: boolean) =>
         if (!dryRun) yield* fs.makeDirectory(action.path, { recursive: true })
         return { path: action.path, status: "created", note: "canonical skills dir" }
       case "LinkSkills":
+        yield* linkAt(action.path, action.target, dryRun)
+        return { path: action.path, status: "linked", note: `→ ${action.target}` }
+      case "MakeCanonicalAgents":
+        if (!dryRun) yield* fs.makeDirectory(action.path, { recursive: true })
+        return { path: action.path, status: "created", note: "canonical agents dir" }
+      case "LinkAgents":
         yield* linkAt(action.path, action.target, dryRun)
         return { path: action.path, status: "linked", note: `→ ${action.target}` }
       case "PromoteRouter":

@@ -2,8 +2,8 @@ import { Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { ADVISORS_START, carryAdvisorsOver, hasAdvisorMarkers } from "../core/advisors.js"
 import { contentHash } from "../core/hash.js"
-import { MANIFEST_PATH, type Manifest, type ManifestEntry, type ManifestLink, decodeManifest, encodeManifest } from "../core/manifest.js"
-import { CANONICAL_SKILLS_DIR } from "../core/providers.js"
+import { MANIFEST_PATH, type Manifest, type ManifestEntry, type ManifestLink, decodeManifest, defaultRole, encodeManifest } from "../core/manifest.js"
+import { CANONICAL_AGENTS_DIR, CANONICAL_SKILLS_DIR } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
 import { stampToday } from "../core/stamp.js"
 import { Assets } from "../services/Assets.js"
@@ -64,10 +64,10 @@ export const initCommand = Command.make(
         if (onDisk === null) {
           const content = stampToday(asset.content)
           yield* writeText(relPath, content)
-          entries.push({ path: relPath, role: "seed", hash: contentHash(content) })
+          entries.push({ path: relPath, role: defaultRole(relPath), hash: contentHash(content) })
           lines.push({ path: relPath, status: "created" })
         } else {
-          entries.push({ path: relPath, role: "seed", hash: contentHash(onDisk) })
+          entries.push({ path: relPath, role: defaultRole(relPath), hash: contentHash(onDisk) })
           lines.push({ path: relPath, status: "kept", note: "already present — left untouched" })
         }
       }
@@ -152,6 +152,29 @@ export const initCommand = Command.make(
           status: "adopted",
           note: "differs from bundled version — run `brain upgrade` to sync"
         })
+      }
+
+      // --- agent suite (shipped advisor subagents) -----------------------
+      // Flat managed files under the canonical .agents/agents; same additive /
+      // adopt / --force semantics as the skill suite, at file granularity.
+      for (const [rel, asset] of assets.agents) {
+        const dest = `${CANONICAL_AGENTS_DIR}/${rel}`
+        const onDisk = yield* readTextOrNull(dest)
+        if (onDisk === null) {
+          yield* writeText(dest, asset.content)
+          entries.push({ path: dest, role: "managed", hash: asset.hash })
+          lines.push({ path: dest, status: "installed" })
+        } else if (contentHash(onDisk) === asset.hash) {
+          entries.push({ path: dest, role: "managed", hash: asset.hash })
+          lines.push({ path: dest, status: "up-to-date" })
+        } else if (opts.force) {
+          yield* writeText(dest, asset.content)
+          entries.push({ path: dest, role: "managed", hash: asset.hash })
+          lines.push({ path: dest, status: "updated", note: "overwritten (--force); review with git diff" })
+        } else {
+          entries.push({ path: dest, role: "managed", hash: contentHash(onDisk) })
+          lines.push({ path: dest, status: "adopted", note: "differs from bundled version — run `brain upgrade` to sync" })
+        }
       }
 
       // --- provider wiring (.agents/-canonical layout) ----------------------

@@ -11,6 +11,9 @@ import { Schema } from "effect"
  * - `seed`    — written once, then owned by the project (brain/ content, or a
  *   pre-existing agent-browser skill we chose not to clobber). Upgrades only
  *   restore it when it is missing.
+ *
+ * Most of brain/ is seed (the project's knowledge), but the two Brain Schema
+ * files are the exception — see `BRAIN_SCHEMA_FILES`.
  */
 
 export const FileRole = Schema.Literal("managed", "seed")
@@ -27,7 +30,7 @@ export type ManifestEntry = typeof ManifestEntry.Type
 export const ManifestLink = Schema.Struct({
   path: Schema.String,
   target: Schema.String,
-  kind: Schema.Literal("skills", "router")
+  kind: Schema.Literal("skills", "router", "agents")
 })
 export type ManifestLink = typeof ManifestLink.Type
 
@@ -55,6 +58,38 @@ export const rewriteSkillsDir = (
     f.path === from || f.path.startsWith(`${from}/`)
       ? { ...f, path: `${to}${f.path.slice(from.length)}` }
       : f
+  )
+
+/**
+ * The brain/ files brain-manager authors and keeps updating (the Brain Schema),
+ * as opposed to the rest of brain/, which is project-owned content. These are the
+ * one exception to "all brain/ is seed": they are `managed`, so schema
+ * improvements reach existing projects on `brain upgrade`. A locally edited copy
+ * still becomes a skipped `conflict` (never a silent overwrite) — the same
+ * three-way safety every managed file gets.
+ */
+export const BRAIN_SCHEMA_FILES: ReadonlySet<string> = new Set([
+  "brain/AGENTS.md",
+  "brain/CLAUDE.md"
+])
+
+/**
+ * Role a path gets at install time: a Brain Schema file is `managed`, any other
+ * brain/ file is project-owned `seed`, and everything else (skills, agents) is
+ * `managed`.
+ */
+export const defaultRole = (path: string): FileRole =>
+  BRAIN_SCHEMA_FILES.has(path) ? "managed" : path.startsWith("brain/") ? "seed" : "managed"
+
+/**
+ * Promote Brain Schema files recorded as `seed` to `managed`. Installs created
+ * before the schema/content split recorded `brain/AGENTS.md` and `brain/CLAUDE.md`
+ * as seed; reconciling on `upgrade`/`doctor` lets them pick up schema updates
+ * without a re-init.
+ */
+export const reconcileRoles = (files: ReadonlyArray<ManifestEntry>): Array<ManifestEntry> =>
+  files.map((f) =>
+    f.role === "seed" && BRAIN_SCHEMA_FILES.has(f.path) ? { ...f, role: "managed" } : f
   )
 
 export const decodeManifest = Schema.decodeUnknown(Schema.parseJson(Manifest))

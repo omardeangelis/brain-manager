@@ -2,13 +2,18 @@
  * The provider registry — the single source of truth for which AI coding tools
  * brain-manager can wire into a project, and what each one needs on disk.
  *
- * Provider-agnosticism is two layers (see the init-brain skill's
+ * Provider-agnosticism is three layers (see the init-brain skill's
  * references/providers.md):
  *
  *  - SKILLS — only tools that read the `SKILL.md` format (Claude Code, OpenCode,
  *    Qwen, Zed) get a skills symlink. The real suite lives once in the canonical
  *    `.agents/skills`; each capable provider gets `<provider>/skills ->
  *    ../.agents/skills` so the tool finds it where it natively looks.
+ *
+ *  - AGENTS — only tools with a subagent concept in the Claude-Code markdown
+ *    format (currently Claude Code) get an agents symlink. The shared advisor
+ *    agents live once in the canonical `.agents/agents`; each capable provider
+ *    gets `<provider>/agents -> ../.agents/agents`.
  *
  *  - ROUTER — the root `AGENTS.md` is canonical. The ~20 tools that read
  *    `AGENTS.md` natively need nothing extra. The holdouts (Claude reads
@@ -29,6 +34,12 @@ export interface Provider {
    */
   readonly skills: string | null
   /**
+   * Subagent directory to symlink at, relative to the repo root, or null/omitted
+   * when the tool has no subagent concept. Currently only Claude Code
+   * (".claude/agents"); the shared definitions live once in `.agents/agents`.
+   */
+  readonly agents?: string | null
+  /**
    * The tool's native root instruction file, or null when it only reads
    * `AGENTS.md`. e.g. "CLAUDE.md", "GEMINI.md", ".github/copilot-instructions.md".
    */
@@ -39,12 +50,14 @@ export interface Provider {
 
 /** Real skill files live here; every provider skills dir symlinks into it. */
 export const CANONICAL_SKILLS_DIR = ".agents/skills"
+/** Real subagent files live here; every agent-capable provider symlinks into it. */
+export const CANONICAL_AGENTS_DIR = ".agents/agents"
 /** Canonical root instruction file; holdout root files symlink to it. */
 export const CANONICAL_ROUTER = "AGENTS.md"
 
 export const PROVIDERS: ReadonlyArray<Provider> = [
   // --- skill-capable: read the shared SKILL.md format ---
-  { id: "claude", label: "Claude Code", dir: ".claude", skills: ".claude/skills", rootFile: "CLAUDE.md", readsAgentsMd: false },
+  { id: "claude", label: "Claude Code", dir: ".claude", skills: ".claude/skills", agents: ".claude/agents", rootFile: "CLAUDE.md", readsAgentsMd: false },
   { id: "opencode", label: "OpenCode", dir: ".opencode", skills: ".opencode/skills", rootFile: null, readsAgentsMd: true },
   { id: "qwen", label: "Qwen Code", dir: ".qwen", skills: ".qwen/skills", rootFile: "QWEN.md", readsAgentsMd: true },
   // Zed has a SKILL.md concept (v1.4+) but its project skills path is not yet
@@ -85,6 +98,9 @@ export const uniqueProviders = (providers: ReadonlyArray<Provider>): Array<Provi
 
 /** A provider participates in the skills layer when it reads the SKILL.md format. */
 export const skillCapable = (p: Provider): boolean => p.skills !== null
+
+/** A provider participates in the agents layer when it has a native subagent dir. */
+export const agentCapable = (p: Provider): boolean => (p.agents ?? null) !== null
 
 /**
  * A provider needs a root-file symlink when it has its OWN root file that is not

@@ -1,6 +1,6 @@
 # Advisor Detection & Wiring
 
-The bundled skills ship generic: their `## Project Advisors` block holds a placeholder. This step inspects the **target repo**, finds its advisor agents, classifies them, and wires the relevant ones into `create-spec`, `create-plan`, and `implement-spec`. This is what adapts the generic flow to the project's own agents.
+The bundled skills ship with three default advisors already wired into their bodies (`ux-advisor`, `adversarial-verifier`, `review-classifier`, installed under `.agents/agents/`). Their `## Project Advisors` block is for *additional* project-specific advisors and holds a placeholder. This step inspects the **target repo**, finds advisor agents beyond the shipped three, classifies them, and adds the relevant ones to the block in `create-spec`, `create-plan`, and `implement-spec`. This is what adapts the flow to the project's own agents.
 
 ## 1. Find agent definitions
 
@@ -14,7 +14,9 @@ find . \( -path ./node_modules -o -path ./.git -o -path ./.venv \) -prune -o \
 
 Common locations: `.claude/agents/*.md`, `.agents/agents/**/*.{md,yaml}`. For each file, read its `name` and `description` (frontmatter for `.md`, top-level keys for `.yaml`).
 
-If none are found, leave every `## Project Advisors` block as the placeholder and say so in the report. Do not invent agents.
+**Exclude the shipped advisors** — `ux-advisor`, `adversarial-verifier`, `review-classifier` (they live in `.agents/agents/` and are already wired into the skill bodies). Only classify agents *beyond* these three.
+
+If no other agents are found, leave every `## Project Advisors` block as the placeholder and say so in the report. Do not invent agents.
 
 ## 2. Classify each agent
 

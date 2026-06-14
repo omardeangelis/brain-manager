@@ -54,6 +54,17 @@ export class Assets extends Effect.Service<Assets>()("Assets", {
       skills.set(name, yield* loadDir(path.join(assetsDir, "skills", name), name))
     }
 
+    // Shipped advisor subagents. Keyed as "<rel>" (e.g. "ux-advisor.md") —
+    // relative to the canonical `.agents/agents` they install into.
+    const agentsDir = path.join(assetsDir, "agents")
+    const agents = new Map<string, AssetFile>()
+    if (yield* fs.exists(agentsDir)) {
+      for (const rel of yield* walkFiles(agentsDir)) {
+        const content = yield* fs.readFileString(path.join(agentsDir, rel))
+        agents.set(rel, { content, hash: contentHash(content) })
+      }
+    }
+
     // The init-brain orchestrator skill ships at <root>/skills/init-brain (not
     // under assets/). `brain install-skill` copies it into the user's global
     // skills dir so /init-brain is available without cloning this repo. Keyed
@@ -63,6 +74,6 @@ export class Assets extends Effect.Service<Assets>()("Assets", {
       ? yield* loadDir(orchestratorDir, "init-brain")
       : new Map<string, AssetFile>()
 
-    return { brain, skills, skillNames, initBrainSkill }
+    return { brain, skills, skillNames, agents, initBrainSkill }
   })
 }) {}

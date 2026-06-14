@@ -44,8 +44,9 @@ Summarize for the user:
 - **Mode:** fresh / migration
 - **Brain:** created at `brain/` (or merged); root pages stamped `YYYY-MM-DD`
 - **Skills:** installed once into `.agents/skills` — list installed vs adopted vs kept (from the `brain init` report)
-- **Providers:** which were wired, and the symlinks created (`.claude/skills → ../.agents/skills`, `CLAUDE.md → AGENTS.md`, …)
+- **Agents:** the three shipped advisors installed once into `.agents/agents` (`ux-advisor`, `adversarial-verifier`, `review-classifier`)
+- **Providers:** which were wired, and the symlinks created (`.claude/skills → ../.agents/skills`, `.claude/agents → ../.agents/agents`, `CLAUDE.md → AGENTS.md`, …)
 - **Migration only:** what was moved (source → dest) and what was deleted
-- **Advisors:** detected agents and where each was wired (or "none detected")
+- **Advisors:** the shipped three are wired into the skill bodies by default; list any *additional* project advisors detected and where each was wired (or "none beyond the shipped three")
 - **Maintenance:** future syncs are `$BRAIN upgrade`; health checks are `$BRAIN doctor`
 - **Next step:** run `create-spec` to author the first `SPEC.md`, then `create-plan` → `implement-spec` → `docs-maintenance`. Fill in the project's real gates (build/test/lint, review) in the repo-root `AGENTS.md`.
