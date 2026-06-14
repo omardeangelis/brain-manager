@@ -23,18 +23,21 @@ const at = (actions: Array<LinkAction>, path: string): LinkAction | undefined =>
 const has = (actions: Array<LinkAction>, tag: LinkAction["_tag"]) => actions.some((a) => a._tag === tag)
 
 describe("planLink — fresh install", () => {
-  it("creates the canonical skills dir, the router, and Claude's two symlinks", () => {
+  it("creates the canonical skills + agents dirs, the router, and Claude's three symlinks", () => {
     const actions = run([claude], {})
     expect(has(actions, "MakeCanonicalSkills")).toBe(true)
+    expect(has(actions, "MakeCanonicalAgents")).toBe(true)
     expect(has(actions, "MakeCanonicalRouter")).toBe(true)
     expect(at(actions, ".claude/skills")).toMatchObject({ _tag: "LinkSkills", target: "../.agents/skills" })
+    expect(at(actions, ".claude/agents")).toMatchObject({ _tag: "LinkAgents", target: "../.agents/agents" })
     expect(at(actions, "CLAUDE.md")).toMatchObject({ _tag: "LinkRouter", target: "AGENTS.md" })
   })
 
-  it("links a router-native skill tool's skills but adds no router symlink", () => {
+  it("links a router-native skill tool's skills but adds no router or agents symlink", () => {
     const actions = run([opencode], {})
     expect(at(actions, ".opencode/skills")).toMatchObject({ _tag: "LinkSkills" })
     expect(has(actions, "LinkRouter")).toBe(false)
+    expect(has(actions, "LinkAgents")).toBe(false)
   })
 
   it("skips a router-only provider's skills (no skills concept)", () => {
@@ -50,12 +53,16 @@ describe("planLink — idempotency", () => {
     const actions = run([claude], {
       ".agents/skills": { kind: "dir" },
       ".claude/skills": { kind: "symlink", target: "../.agents/skills" },
+      ".agents/agents": { kind: "dir" },
+      ".claude/agents": { kind: "symlink", target: "../.agents/agents" },
       "AGENTS.md": { kind: "file" },
       "CLAUDE.md": { kind: "symlink", target: "AGENTS.md" }
     })
     expect(at(actions, ".claude/skills")?._tag).toBe("AlreadyLinked")
+    expect(at(actions, ".claude/agents")?._tag).toBe("AlreadyLinked")
     expect(at(actions, "CLAUDE.md")?._tag).toBe("AlreadyLinked")
     expect(has(actions, "MakeCanonicalSkills")).toBe(false)
+    expect(has(actions, "MakeCanonicalAgents")).toBe(false)
     expect(has(actions, "MakeCanonicalRouter")).toBe(false)
   })
 })
@@ -116,6 +123,7 @@ describe("expectedLinks", () => {
   it("lists skills + router links for the selection, skipping router-native and non-skill tools", () => {
     expect(expectedLinks([claude])).toEqual([
       { path: ".claude/skills", target: "../.agents/skills", kind: "skills" },
+      { path: ".claude/agents", target: "../.agents/agents", kind: "agents" },
       { path: "CLAUDE.md", target: "AGENTS.md", kind: "router" }
     ])
     expect(expectedLinks([opencode])).toEqual([

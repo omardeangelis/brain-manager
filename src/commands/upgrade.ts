@@ -2,9 +2,9 @@ import { Command, Options } from "@effect/cli"
 import { Console, Effect } from "effect"
 import { carryAdvisorsOver, hasAdvisorMarkers } from "../core/advisors.js"
 import { contentHash } from "../core/hash.js"
-import { MANIFEST_PATH, type Manifest, type ManifestEntry, decodeManifest, encodeManifest, rewriteSkillsDir } from "../core/manifest.js"
+import { MANIFEST_PATH, type Manifest, type ManifestEntry, decodeManifest, defaultRole, encodeManifest, reconcileRoles, rewriteSkillsDir } from "../core/manifest.js"
 import { planUpgrade, type UpgradeAction } from "../core/plan.js"
-import { CANONICAL_SKILLS_DIR, type Provider, byId, providerForSkillsDir, uniqueProviders } from "../core/providers.js"
+import { CANONICAL_AGENTS_DIR, CANONICAL_SKILLS_DIR, type Provider, byId, providerForSkillsDir, uniqueProviders } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
 import { stampToday } from "../core/stamp.js"
 import { CliError } from "../errors.js"
@@ -61,36 +61,50 @@ export const upgradeCommand = Command.make(
         Effect.mapError((e) => new CliError({ message: `unreadable manifest: ${e.message}` }))
       )
 
-      // --- migrate legacy layout to .agents/-canonical ----------------------
-      // Installs from before the provider-agnostic layout have skills under a
-      // provider dir (e.g. .claude/skills) and no `.agents/`. Relocate them to
-      // the canonical dir, symlink the old path back, and re-point the manifest.
+      // --- reconcile the .agents/-canonical layout --------------------------
+      // Migrates a legacy `.claude/skills` install (skills under a provider dir,
+      // no `.agents/`) to canonical, AND on every run refreshes provider symlinks
+      // so a pre-existing install picks up the newly-shipped agents symlink
+      // (`.claude/agents → ../.agents/agents`) without a re-init. Steady-state
+      // (everything already linked) adds no noise — only changed links are shown.
       const migrationLines: Array<ReportLine> = []
-      if (manifest.skillsDir !== CANONICAL_SKILLS_DIR && !opts.noMigrate) {
-        const owner = providerForSkillsDir(manifest.skillsDir)
+      let didMigrate = false
+      if (!opts.noMigrate) {
+        const migrating = manifest.skillsDir !== CANONICAL_SKILLS_DIR
+        const owner = migrating ? providerForSkillsDir(manifest.skillsDir) : undefined
         const recorded = manifest.providers.map(byId).filter((p): p is Provider => p !== undefined)
         const detected = yield* detectProviders
         const providers = uniqueProviders([...(owner ? [owner] : []), ...recorded, ...detected])
 
-        const result = yield* runLink({
-          providers,
-          currentSkillsDir: manifest.skillsDir,
-          force: false,
-          dryRun: opts.dryRun
-        })
-        for (const l of result.lines) migrationLines.push(l)
-
-        const moved = result.actions.find((a) => a._tag === "MigrateSkills")
-        manifest = {
-          ...manifest,
-          skillsDir: CANONICAL_SKILLS_DIR,
-          files: moved && moved._tag === "MigrateSkills"
-            ? rewriteSkillsDir(manifest.files, moved.from, moved.to)
-            : manifest.files,
-          providers: providers.map((p) => p.id),
-          links: result.links
+        if (providers.length > 0) {
+          const result = yield* runLink({
+            providers,
+            currentSkillsDir: migrating ? manifest.skillsDir : CANONICAL_SKILLS_DIR,
+            force: false,
+            dryRun: opts.dryRun
+          })
+          const moved = result.actions.find((a) => a._tag === "MigrateSkills")
+          didMigrate = moved !== undefined
+          for (const l of result.lines) {
+            if (didMigrate || (l.status !== "up-to-date" && l.status !== "skipped")) {
+              migrationLines.push(l)
+            }
+          }
+          manifest = {
+            ...manifest,
+            skillsDir: CANONICAL_SKILLS_DIR,
+            files: moved && moved._tag === "MigrateSkills"
+              ? rewriteSkillsDir(manifest.files, moved.from, moved.to)
+              : manifest.files,
+            providers: providers.map((p) => p.id),
+            links: result.links
+          }
         }
       }
+
+      // Promote any Brain Schema files an older install recorded as seed, so
+      // they pick up schema updates as managed files (pre-split installs only).
+      manifest = { ...manifest, files: reconcileRoles(manifest.files) }
 
       // Bundled assets, keyed by their path in this project.
       const assetFiles = new Map<string, AssetFile>(assets.brain)
@@ -98,6 +112,9 @@ export const upgradeCommand = Command.make(
         for (const [rel, asset] of files) {
           assetFiles.set(`${manifest.skillsDir}/${rel}`, asset)
         }
+      }
+      for (const [rel, asset] of assets.agents) {
+        assetFiles.set(`${CANONICAL_AGENTS_DIR}/${rel}`, asset)
       }
       const assetHashes = new Map([...assetFiles].map(([p, a]) => [p, a.hash]))
 
@@ -114,7 +131,7 @@ export const upgradeCommand = Command.make(
       const oldRole = new Map(manifest.files.map((f) => [f.path, f.role]))
       const oldHash = new Map(manifest.files.map((f) => [f.path, f.hash]))
       const roleFor = (path: string): ManifestEntry["role"] =>
-        oldRole.get(path) ?? (path.startsWith("brain/") ? "seed" : "managed")
+        oldRole.get(path) ?? defaultRole(path)
 
       const lines: Array<ReportLine> = []
       const entries: Array<ManifestEntry> = []
@@ -203,7 +220,7 @@ export const upgradeCommand = Command.make(
         lines: allLines,
         notes: [
           `manifest: ${manifest.packageVersion} -> ${VERSION}`,
-          ...(migrationLines.length > 0
+          ...(didMigrate
             ? [`migrated to the .agents/-canonical layout (skills now at ${CANONICAL_SKILLS_DIR})`]
             : []),
           ...(opts.dryRun ? ["dry run — nothing was written"] : []),

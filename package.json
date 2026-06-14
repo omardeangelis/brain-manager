@@ -1,6 +1,6 @@
 {
   "name": "brain-manager",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "CLI that bootstraps and maintains the brain/ knowledge base and its spec-driven skill suite in any project.",
   "type": "module",
   "license": "MIT",
@@ -23,10 +23,11 @@
     "node": ">=18"
   },
   "scripts": {
+    "clean": "rm -rf dist",
     "build": "tsc",
     "check": "tsc --noEmit",
     "test": "vitest run",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run clean && npm run build && npm test"
   },
   "dependencies": {
     "@effect/cli": "^0.75.2",

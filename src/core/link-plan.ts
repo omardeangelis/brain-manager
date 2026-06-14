@@ -1,7 +1,9 @@
 import {
+  CANONICAL_AGENTS_DIR,
   CANONICAL_ROUTER,
   CANONICAL_SKILLS_DIR,
   type Provider,
+  agentCapable,
   needsRouterSymlink,
   relSymlinkTarget,
   skillCapable
@@ -42,6 +44,8 @@ export type LinkAction =
   | { readonly _tag: "MigrateSkills"; readonly from: string; readonly to: string }
   | { readonly _tag: "MakeCanonicalSkills"; readonly path: string }
   | { readonly _tag: "LinkSkills"; readonly provider: string; readonly path: string; readonly target: string }
+  | { readonly _tag: "MakeCanonicalAgents"; readonly path: string }
+  | { readonly _tag: "LinkAgents"; readonly provider: string; readonly path: string; readonly target: string }
   | { readonly _tag: "PromoteRouter"; readonly from: string; readonly to: string }
   | { readonly _tag: "MakeCanonicalRouter"; readonly path: string }
   | { readonly _tag: "LinkRouter"; readonly provider: string; readonly path: string; readonly target: string }
@@ -141,6 +145,33 @@ export const planLink = (input: LinkInput): Array<LinkAction> => {
     }
   }
 
+  // --- agents: establish the canonical dir + per-provider symlinks ---------
+  // No legacy migration: the agents layer is newer than any pre-`.agents/`
+  // install, so there is never a real agents dir to relocate.
+  const agentsCanon = CANONICAL_AGENTS_DIR
+  if (factOf(agentsCanon).kind === "absent") {
+    actions.push({ _tag: "MakeCanonicalAgents", path: agentsCanon })
+  }
+  for (const p of providers) {
+    if (!agentCapable(p)) continue
+    const linkPath = p.agents!
+    if (linkPath === agentsCanon) {
+      actions.push({ _tag: "AlreadyLinked", path: linkPath })
+      continue
+    }
+    const target = relSymlinkTarget(linkPath, agentsCanon)
+    const fact = factOf(linkPath)
+    if (fact.kind === "symlink") {
+      if (fact.target === target) actions.push({ _tag: "AlreadyLinked", path: linkPath })
+      else if (force) actions.push({ _tag: "LinkAgents", provider: p.id, path: linkPath, target })
+      else actions.push({ _tag: "Conflict", path: linkPath, why: `symlink points to ${fact.target ?? "?"}, expected ${target}` })
+    } else if (fact.kind === "absent" || force) {
+      actions.push({ _tag: "LinkAgents", provider: p.id, path: linkPath, target })
+    } else {
+      actions.push({ _tag: "Conflict", path: linkPath, why: `real ${fact.kind} in the way — refusing to replace (use --force)` })
+    }
+  }
+
   return actions
 }
 
@@ -150,11 +181,14 @@ export const planLink = (input: LinkInput): Array<LinkAction> => {
  */
 export const expectedLinks = (
   providers: ReadonlyArray<Provider>
-): Array<{ readonly path: string; readonly target: string; readonly kind: "skills" | "router" }> => {
-  const links: Array<{ path: string; target: string; kind: "skills" | "router" }> = []
+): Array<{ readonly path: string; readonly target: string; readonly kind: "skills" | "router" | "agents" }> => {
+  const links: Array<{ path: string; target: string; kind: "skills" | "router" | "agents" }> = []
   for (const p of providers) {
     if (skillCapable(p) && p.skills !== CANONICAL_SKILLS_DIR) {
       links.push({ path: p.skills!, target: relSymlinkTarget(p.skills!, CANONICAL_SKILLS_DIR), kind: "skills" })
+    }
+    if (agentCapable(p) && p.agents !== CANONICAL_AGENTS_DIR) {
+      links.push({ path: p.agents!, target: relSymlinkTarget(p.agents!, CANONICAL_AGENTS_DIR), kind: "agents" })
     }
     if (needsRouterSymlink(p)) {
       links.push({ path: p.rootFile!, target: relSymlinkTarget(p.rootFile!, CANONICAL_ROUTER), kind: "router" })

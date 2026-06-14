@@ -28,6 +28,12 @@ _empty_
 
 _empty_
 
+## Reviews
+
+> `adversarial-review` writes SHIP/DO-NOT-SHIP reports here. Standalone reviews land under `review/<slug>/`; spec-implementation reviews live inside the spec folder (`specs/<domain>/<spec>/REPORT.md`).
+
+_empty_
+
 ## Log
 
 - [[log|log.md]] — append-only ingest/spec log (max 50 entries)

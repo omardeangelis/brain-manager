@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
+  CANONICAL_AGENTS_DIR,
   CANONICAL_ROUTER,
   CANONICAL_SKILLS_DIR,
   PROVIDERS,
+  agentCapable,
   byId,
   needsRouterSymlink,
   parseProviders,
@@ -28,6 +30,13 @@ describe("registry", () => {
   it("only Claude needs a router symlink (everyone else reads AGENTS.md natively)", () => {
     const needing = PROVIDERS.filter(needsRouterSymlink).map((p) => p.id)
     expect(needing).toEqual(["claude"])
+  })
+
+  it("marks only Claude as agent-capable (the one tool with the subagent format)", () => {
+    const capable = PROVIDERS.filter(agentCapable).map((p) => p.id)
+    expect(capable).toEqual(["claude"])
+    expect(byId("claude")?.agents).toBe(".claude/agents")
+    expect(byId("opencode")?.agents ?? null).toBeNull()
   })
 
   it("looks providers up by id (case-insensitive) and by skills dir", () => {
@@ -64,6 +73,10 @@ describe("relSymlinkTarget", () => {
   it("points a nested skills dir up to the canonical one", () => {
     expect(relSymlinkTarget(".claude/skills", CANONICAL_SKILLS_DIR)).toBe("../.agents/skills")
     expect(relSymlinkTarget(".opencode/skills", CANONICAL_SKILLS_DIR)).toBe("../.agents/skills")
+  })
+
+  it("points a nested agents dir up to the canonical one", () => {
+    expect(relSymlinkTarget(".claude/agents", CANONICAL_AGENTS_DIR)).toBe("../.agents/agents")
   })
 
   it("points a root file at the canonical router in the same dir", () => {

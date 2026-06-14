@@ -2,9 +2,9 @@ import { Command, Options } from "@effect/cli"
 import { FileSystem } from "@effect/platform"
 import { Console, Effect } from "effect"
 import { contentHash } from "../core/hash.js"
-import { MANIFEST_PATH, decodeManifest } from "../core/manifest.js"
+import { MANIFEST_PATH, decodeManifest, reconcileRoles } from "../core/manifest.js"
 import { planUpgrade } from "../core/plan.js"
-import { CANONICAL_SKILLS_DIR } from "../core/providers.js"
+import { CANONICAL_AGENTS_DIR, CANONICAL_SKILLS_DIR } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
 import { Assets, type AssetFile } from "../services/Assets.js"
 import { exists, pathFact, readTextOrNull, walkFiles } from "../services/fsx.js"
@@ -82,6 +82,9 @@ export const doctorCommand = Command.make("doctor", { json }, (opts) =>
             assetFiles.set(`${manifest.value.skillsDir}/${rel}`, asset)
           }
         }
+        for (const [rel, asset] of assets.agents) {
+          assetFiles.set(`${CANONICAL_AGENTS_DIR}/${rel}`, asset)
+        }
         const assetHashes = new Map([...assetFiles].map(([p, a]) => [p, a.hash]))
         const paths = new Set([...assetHashes.keys(), ...manifest.value.files.map((f) => f.path)])
         const diskHashes = new Map<string, string | null>()
@@ -90,7 +93,7 @@ export const doctorCommand = Command.make("doctor", { json }, (opts) =>
           diskHashes.set(p, content === null ? null : contentHash(content))
         }
 
-        for (const action of planUpgrade({ manifestFiles: manifest.value.files, assetHashes, diskHashes })) {
+        for (const action of planUpgrade({ manifestFiles: reconcileRoles(manifest.value.files), assetHashes, diskHashes })) {
           switch (action._tag) {
             case "Update":
             case "Install":

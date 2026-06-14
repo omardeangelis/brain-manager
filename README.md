@@ -36,7 +36,7 @@ npx -y brain-manager <command>     # or: npm i -g brain-manager
 |---|---|
 | `brain onboard` | Print the `init-brain` orchestration playbook (with references inlined) to stdout for an AI assistant to follow — **no install, no drift**. The drift-free entry point: read fresh from the package every run. `--json` for the structured body. |
 | `brain install-skill` | Copy the `init-brain` orchestrator skill into your global skills dir (`~/.agents/skills` / `~/.claude/skills`) so `/init-brain` works in every project — **no clone needed**. An existing install is kept (`up-to-date` / `exists`) unless you pass `--force`. |
-| `brain init` | Scaffold `brain/` + install the 8 skills into the canonical `.agents/skills`, then wire the chosen AI providers (`--providers claude,codex,cursor`; auto-detects if omitted). **Additive**: existing files are never overwritten — pre-existing skills are *adopted* into the manifest instead. Writes `brain/.brain-manifest.json`. |
+| `brain init` | Scaffold `brain/` + install the 9 skills into the canonical `.agents/skills` and the 3 advisor subagents into `.agents/agents`, then wire the chosen AI providers (`--providers claude,codex,cursor`; auto-detects if omitted). **Additive**: existing files are never overwritten — pre-existing skills are *adopted* into the manifest instead. Writes `brain/.brain-manifest.json`. |
 | `brain link` | Wire (or add) AI providers into the `.agents/`-canonical layout: symlink `<provider>/skills → ../.agents/skills` for skill-capable tools and the root `AGENTS.md` for the rest. Idempotent and additive; `--force` to replace a conflicting path. |
 | `brain upgrade` | Sync installed skills to this package version. Manifest-aware: untouched files update, locally modified files are skipped as conflicts (`--force` to overwrite, `--dry-run` to preview). Auto-migrates a legacy `.claude/skills` install to the `.agents/` layout (`--no-migrate` to skip). |
 | `brain doctor` | Read-only health check: scaffold structure, unstamped placeholders, manifest, skill drift, and provider symlinks. Exit 1 on problems. |
@@ -48,15 +48,17 @@ All commands take `--json` for machine/agent-friendly output.
 
 `brain init` records a content hash for every file it installs. `brain upgrade` then compares manifest / disk / bundled-assets three ways: a file you never touched updates silently; a file you edited becomes a `conflict` and is left alone. Two ownership rules on top:
 
-- **`brain/` content is yours** (seed): written once, restored only if deleted, never overwritten.
+- **`brain/` content is yours** (seed): written once, restored only if deleted, never overwritten. The one exception is the two **Brain Schema** files (`brain/AGENTS.md` / `brain/CLAUDE.md`), which are *managed* — schema improvements reach you on upgrade, and a copy you edited locally becomes a skipped `conflict` (never a silent overwrite).
 - **The `## Project Advisors` blocks are yours**: hashes are computed with the block normalized away, so LLM-wired advisors never count as a modification and are carried over on every update.
 
 ## What ends up in a project
 
-- **`brain/`** — `AGENTS.md` + `CLAUDE.md` (the Brain Schema), `index.md`, `log.md`, the `raw/ specs/ domains/ chore/ tech-debt/` layout, and `.brain-manifest.json`.
+- **`brain/`** — `AGENTS.md` + `CLAUDE.md` (the Brain Schema), `index.md`, `log.md`, the `raw/ specs/ domains/ chore/ tech-debt/ review/` layout, and `.brain-manifest.json`.
 - **A canonical `.agents/skills/`** holding the suite once, with each chosen provider symlinked into it (`.claude/skills → ../.agents/skills`, …) so every AI tool reads the same files.
+- **A canonical `.agents/agents/`** holding the shipped advisor subagents once, symlinked into each agent-capable provider (`.claude/agents → ../.agents/agents`).
 - **A root `AGENTS.md`** as the canonical instruction file (read natively by ~20 tools incl. Codex & Cursor), with `CLAUDE.md → AGENTS.md` for Claude. This is also where the project's own gates (build/test/lint, review) live.
-- **Seven process skills**, generic and brain-wired: `create-spec`, `create-plan`, `grill-me`, `tdd`, `swarm-plan`, `implement-spec`, `docs-maintenance`.
+- **Eight process skills**, generic and brain-wired: `create-spec`, `create-plan`, `grill-me`, `tdd`, `swarm-plan`, `implement-spec`, `docs-maintenance`, `adversarial-review`.
+- **Three advisor subagents**, spawned by the spec-driven skills to verify reasoning off the orchestrator's context: `ux-advisor` (writes a spec's `FLOW.md`), `adversarial-verifier` (clean-context quality gate → SHIP / DO NOT SHIP), and `review-classifier` (routes the `adversarial-review` pipeline).
 - **The `agent-browser` tool skill** (docs only; the CLI is a separate `npm i -g agent-browser`). A pre-existing project-specific copy is detected and never clobbered.
 
 ## Repo layout
@@ -71,7 +73,8 @@ brain-manager/
 │   └── services/         # Assets service + fs helpers
 ├── assets/
 │   ├── brain/            # the brain/ scaffold stamped into projects
-│   └── skills/           # the 8 bundled suite skills
+│   ├── agents/           # the 3 shipped advisor subagents (→ .agents/agents)
+│   └── skills/           # the 9 bundled suite skills
 └── skills/init-brain/    # the orchestrator skill (drives the CLI)
 ```
 
