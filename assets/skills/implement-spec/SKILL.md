@@ -26,6 +26,7 @@ description: Implement an approved spec folder while keeping `IMPLEMENTATION-NOT
 **Pre-task** — before starting a task whose `location` matches a trigger (see [references/lifecycle.md](references/lifecycle.md) §6):
 
 - user-facing-flow tasks → the **`ux-advisor`** agent (shipped) when UX friction surfaces beyond `SPEC.md`/`FLOW.md`. Treat `FLOW.md`'s error/edge paths as part of the task's acceptance surface, not optional polish.
+- motion / UI-polish tasks (a `review_mode: browser` task carrying motion targets, or any task where an animation decision surfaces beyond `PLAN.md`) → the **`design-engineer`** agent (shipped) to resolve the exact values and the implementation route before the RED test. It advises only; it never writes the code.
 - data/schema-layer tasks → the project's schema/data advisor agent, if one is defined (see `## Project Advisors`; not shipped by default).
 
 **Post-implementation gate** — before the shared acceptance audit / finalization:
@@ -59,7 +60,8 @@ That means `implement-spec` itself owns all of the following in parallel mode:
 6. After each completed task or wave, update `PLAN.md`, `IMPLEMENTATION-NOTES.md`, and spec-linked tech debt before advancing.
 7. If backlog sync is in scope, keep epic/story bodies product-facing and use native metadata or comments instead of execution handoff rewrites.
 8. Before the acceptance audit, run the **`adversarial-review`** skill on the implementation (case B) as the independent quality gate and resolve any BLOCKER it reports (see `## Required Advisor Agents`).
-9. Finish with the shared acceptance audit and spec finalization contract.
+9. If `SPEC.md` cites a `prototype` surface (path + route), delete that folder and its dev-only route as part of finalization — the winner is now implemented (the prototype skill's Hard Rule 5) — and record the removal in `IMPLEMENTATION-NOTES.md`.
+10. Finish with the shared acceptance audit and spec finalization contract.
 
 ## Mode selection
 
@@ -87,7 +89,7 @@ If the user already chose a mode, honor it. If not, make the smallest safe choic
 
 ## Project Advisors
 
-The shipped advisors — the **`ux-advisor`** agent (reactive UX friction) and the **`adversarial-review`** skill (post-implementation quality gate) — are already wired into `## Required Advisor Agents` above. List any *additional* project-specific advisors here (e.g. a schema/data advisor for data-layer tasks) and init-brain will pick them up. When a task's `location` matches a trigger, delegate via the `Agent` tool with `subagent_type: "<agent-name>"` **before** starting that task.
+The shipped advisors — the **`ux-advisor`** agent (reactive UX friction), the **`design-engineer`** agent (pre-task motion decisions), and the **`adversarial-review`** skill (post-implementation quality gate) — are already wired into `## Required Advisor Agents` above. List any *additional* project-specific advisors here (e.g. a schema/data advisor for data-layer tasks) and init-brain will pick them up. When a task's `location` matches a trigger, delegate via the `Agent` tool with `subagent_type: "<agent-name>"` **before** starting that task.
 
 <!-- init-brain:advisors:start -->
 _No project advisor agents detected beyond the shipped defaults. If this project defines more agents under `.claude/agents/` or `.agents/agents/`, list each here as: **`<name>`** — trigger location — when to delegate._

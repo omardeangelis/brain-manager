@@ -7,7 +7,7 @@ How brain wires itself into whichever AI coding tools a project uses. The CLI do
 The skill suite and the root instruction file live **once**, in a canonical place, and each chosen tool is **symlinked into it** — so you maintain one copy and every tool sees the same thing.
 
 - **Skills** → canonical **`.agents/skills/`**. Real `SKILL.md` files live here; each skill-capable provider gets `<provider>/skills → ../.agents/skills`.
-- **Agents** → canonical **`.agents/agents/`**. The shipped advisor subagents (`ux-advisor`, `adversarial-verifier`, `review-classifier`) live here; each agent-capable provider gets `<provider>/agents → ../.agents/agents`. Only Claude Code has a native subagent format today, so only `.claude/agents` is symlinked.
+- **Agents** → canonical **`.agents/agents/`**. The shipped advisor subagents (`ux-advisor`, `design-engineer`, `adversarial-verifier`, `review-classifier`) live here; each agent-capable provider gets `<provider>/agents → ../.agents/agents`. Only Claude Code has a native subagent format today, so only `.claude/agents` is symlinked.
 - **Router** → canonical root **`AGENTS.md`**. ~20 tools read it natively (nothing to create). The one holdout, Claude, gets `CLAUDE.md → AGENTS.md`.
 
 Why `.agents/` is canonical: it is tool-neutral, it is where the ecosystem is converging (the `AGENTS.md` standard, `~/.agents/skills`), and a symlink-in means a `brain upgrade` updates the suite for every tool at once.

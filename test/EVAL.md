@@ -12,7 +12,7 @@ automated rows; the rest are a manual smoke pass.
 
 | Scenario | Command | Expect | |
 |---|---|---|---|
-| Claude (skills + agents) | `init --providers claude` | brain/ scaffolded; 9 skills in `.agents/skills`, 3 agents in `.agents/agents`; `.claude/{skills,agents}` + `CLAUDE.md` symlinks; manifest has an `agents` link | [auto] |
+| Claude (skills + agents) | `init --providers claude` | brain/ scaffolded; 10 skills in `.agents/skills`, 4 agents in `.agents/agents`; `.claude/{skills,agents}` + `CLAUDE.md` symlinks; manifest has an `agents` link | [auto] |
 | Brain Schema is managed | `init --providers claude` | manifest role: `brain/AGENTS.md` + `brain/CLAUDE.md` = `managed`, `brain/index.md` = `seed` | [auto] |
 | Router-only (codex/cursor) | `init --providers codex` | `AGENTS.md` is a real file (not symlink); no `.codex/skills` or `.codex/agents`; agents still in `.agents/agents`; manifest links empty | [auto] |
 | Multi-provider | `init --providers claude,codex,cursor` | only claude gets symlinks; codex/cursor covered by `AGENTS.md` | [man] |
