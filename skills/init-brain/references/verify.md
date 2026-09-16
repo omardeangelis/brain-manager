@@ -22,7 +22,7 @@ grep -rIlE "docs/|wiki/|\.notes/" "$SKILLS_DIR" 2>/dev/null && echo "WARN: skill
 Confirm none of the managed skills carry foreign project tokens (they ship generic):
 
 ```bash
-grep -rInE "apps/(api|website|spa)|db-schema-architect|ux-research-advisor|opensrc|write-backlog|create-brain-domain" "$SKILLS_DIR"/{create-spec,create-plan,grill-me,tdd,swarm-plan,implement-spec,docs-maintenance} 2>/dev/null \
+grep -rInE "apps/(api|website|spa)|db-schema-architect|ux-research-advisor|opensrc|write-backlog|create-brain-domain" "$SKILLS_DIR"/{create-spec,create-plan,grill-me,tdd,swarm-plan,implement-spec,docs-maintenance,adversarial-review,prototype} 2>/dev/null \
   && echo "WARN: residual hardcoded tokens (advisor names are OK only inside the advisors markers)" \
   || echo "skills are generic ✅"
 ```
@@ -44,9 +44,9 @@ Summarize for the user:
 - **Mode:** fresh / migration
 - **Brain:** created at `brain/` (or merged); root pages stamped `YYYY-MM-DD`
 - **Skills:** installed once into `.agents/skills` — list installed vs adopted vs kept (from the `brain init` report)
-- **Agents:** the three shipped advisors installed once into `.agents/agents` (`ux-advisor`, `adversarial-verifier`, `review-classifier`)
+- **Agents:** the four shipped advisors installed once into `.agents/agents` (`ux-advisor`, `design-engineer`, `adversarial-verifier`, `review-classifier`)
 - **Providers:** which were wired, and the symlinks created (`.claude/skills → ../.agents/skills`, `.claude/agents → ../.agents/agents`, `CLAUDE.md → AGENTS.md`, …)
 - **Migration only:** what was moved (source → dest) and what was deleted
-- **Advisors:** the shipped three are wired into the skill bodies by default; list any *additional* project advisors detected and where each was wired (or "none beyond the shipped three")
+- **Advisors:** the shipped four are wired into the skill bodies by default; list any *additional* project advisors detected and where each was wired (or "none beyond the shipped four")
 - **Maintenance:** future syncs are `$BRAIN upgrade`; health checks are `$BRAIN doctor`
 - **Next step:** run `create-spec` to author the first `SPEC.md`, then `create-plan` → `implement-spec` → `docs-maintenance`. Fill in the project's real gates (build/test/lint, review) in the repo-root `AGENTS.md`.

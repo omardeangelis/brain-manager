@@ -80,6 +80,8 @@ Scan for these regardless of stack, and treat any of them as an escalation trigg
 
 Map each touched surface to a dedicated `passes[]` entry with a charter scoped to that concern, and let it drive the impact escalation.
 
+**Separate craft concern (its own pass, no impact escalation):** when the change set contains animation or motion code (CSS `transition` / `animation` / `@keyframes`, easing or duration tokens, Web Animations API or animation-library calls, springs, gesture handlers, component enter/exit styling), emit a dedicated **motion-craft** verifier pass chartered against the `design-engineer` agent's review bar (the project's `design-engineering` review reference when one ships, otherwise the baseline in `.agents/agents/design-engineer.md`). Motion craft is a separate concern from functional correctness and must not be lumped into a generic UI pass.
+
 ## Output contract — emit the RUBRIC
 
 Output a single RUBRIC as machine-parseable JSON inside a ```json code block, followed by a brief plain-language rationale. Use exactly this shape:

@@ -1,6 +1,6 @@
 ---
 name: init-brain
-description: Bootstrap the `brain/` knowledge base and its spec-driven skill suite (create-spec, create-plan, grill-me, tdd, swarm-plan, implement-spec, docs-maintenance) plus the agent-browser validation tool skill into any project, driving the `brain` CLI for the mechanical work. Two modes — fresh init (scaffold + install skills) or migration (move existing domain/chore/tech-debt content into brain, repoint existing skills, delete old sources after confirmation). Use when the user wants to set up brain, initialize the knowledge base, replicate the brain/spec-driven workflow in a new repo, or migrate a prior docs/specs structure into brain.
+description: Bootstrap the `brain/` knowledge base and its spec-driven skill suite (create-spec, create-plan, grill-me, tdd, swarm-plan, implement-spec, docs-maintenance, adversarial-review, prototype) plus the agent-browser validation tool skill into any project, driving the `brain` CLI for the mechanical work. Two modes — fresh init (scaffold + install skills) or migration (move existing domain/chore/tech-debt content into brain, repoint existing skills, delete old sources after confirmation). Use when the user wants to set up brain, initialize the knowledge base, replicate the brain/spec-driven workflow in a new repo, or migrate a prior docs/specs structure into brain.
 ---
 
 # Init Brain
@@ -10,10 +10,10 @@ Bootstraps the `brain/` knowledge base and the spec-driven skill suite into the 
 ## What a run produces
 
 - A scaffolded **`brain/`** folder (`AGENTS.md`, `CLAUDE.md`, `index.md`, `log.md`, the `raw/ specs/ domains/ chore/ tech-debt/ review/` layout) plus `brain/.brain-manifest.json`, which makes future `brain upgrade` runs safe.
-- The skill suite installed **once** into the canonical **`.agents/skills/`**, with each chosen AI provider symlinked into it (`.claude/skills → ../.agents/skills`, …). Eight process skills — **create-spec, create-plan, grill-me, tdd, swarm-plan, implement-spec, docs-maintenance, adversarial-review** — plus the **agent-browser** tool skill (docs only; its CLI is a separate `npm i -g agent-browser`).
-- Three shipped **advisor subagents** installed into the canonical **`.agents/agents/`** and symlinked into each capable provider (`.claude/agents → ../.agents/agents`): **ux-advisor** (writes a spec's `FLOW.md`), **adversarial-verifier**, and **review-classifier**. The spec-driven skills spawn them to verify reasoning off the orchestrator's context.
+- The skill suite installed **once** into the canonical **`.agents/skills/`**, with each chosen AI provider symlinked into it (`.claude/skills → ../.agents/skills`, …). Nine process skills — **create-spec, create-plan, grill-me, tdd, swarm-plan, implement-spec, docs-maintenance, adversarial-review, prototype** (the last one explicit-invocation only) — plus the **agent-browser** tool skill (docs only; its CLI is a separate `npm i -g agent-browser`).
+- Four shipped **advisor subagents** installed into the canonical **`.agents/agents/`** and symlinked into each capable provider (`.claude/agents → ../.agents/agents`): **ux-advisor** (writes a spec's `FLOW.md`), **design-engineer** (motion / interaction craft), **adversarial-verifier**, and **review-classifier**. The spec-driven skills spawn them to verify reasoning off the orchestrator's context.
 - A canonical root **`AGENTS.md`** (read natively by ~20 tools, incl. Codex & Cursor) with `CLAUDE.md → AGENTS.md` for Claude — the home for the project's own gates.
-- A **`## Project Advisors`** section in create-spec / create-plan / implement-spec listing any *additional* advisor agents detected in the repo (the shipped three are already wired into the skill bodies).
+- A **`## Project Advisors`** section in create-spec / create-plan / implement-spec listing any *additional* advisor agents detected in the repo (the shipped four are already wired into the skill bodies).
 
 ## Contract
 
@@ -71,7 +71,7 @@ Pass the chosen ids as a comma-separated `--providers` list in the next step.
 
 ## Step 3 — Wire additional project advisors
 
-The three shipped advisors (`ux-advisor`, `adversarial-verifier`, `review-classifier`) are already wired into the skill bodies and installed under `.agents/agents/` — do not re-wire them. This step finds any *additional* project-specific advisors. Read [references/advisor-detection.md](references/advisor-detection.md): the scan listed `agent-definition` findings (the shipped three are among them — ignore those), classify the rest, and add them to the `## Project Advisors` block (between the `init-brain:advisors` markers) in create-spec / create-plan / implement-spec. Advisor edits inside the markers are hash-normalized by the CLI, so they never block a future `brain upgrade`. If no other advisors exist, leave the blocks as the placeholder.
+The four shipped advisors (`ux-advisor`, `design-engineer`, `adversarial-verifier`, `review-classifier`) are already wired into the skill bodies and installed under `.agents/agents/` — do not re-wire them. This step finds any *additional* project-specific advisors. Read [references/advisor-detection.md](references/advisor-detection.md): the scan listed `agent-definition` findings (the shipped four are among them — ignore those), classify the rest, and add them to the `## Project Advisors` block (between the `init-brain:advisors` markers) in create-spec / create-plan / implement-spec. Advisor edits inside the markers are hash-normalized by the CLI, so they never block a future `brain upgrade`. If no other advisors exist, leave the blocks as the placeholder.
 
 ## Step 4 — Point the root AGENTS.md at brain
 
@@ -89,6 +89,6 @@ Then read [references/verify.md](references/verify.md) for the intelligent check
 
 - Overwrite existing `brain/` content — `brain init` is additive by design; do not "fix" that with manual copies.
 - Delete any legacy source in migration mode without explicit confirmation **and** a check that the content now exists in `brain/`.
-- Hardcode *project-specific* advisor names anywhere except between the `init-brain:advisors` markers — the shipped advisors (`ux-advisor` / `adversarial-verifier` / `review-classifier`) are referenced in the skill bodies by design and are not project-specific.
+- Hardcode *project-specific* advisor names anywhere except between the `init-brain:advisors` markers — the shipped advisors (`ux-advisor` / `design-engineer` / `adversarial-verifier` / `review-classifier`) are referenced in the skill bodies by design and are not project-specific.
 - Bypass the CLI for scaffolding or skill installs — the manifest it writes is what keeps `brain upgrade` safe later.
 - Hand-create a provider's `skills/` dir or copy skills into `.claude/skills` — let `brain init --providers` / `brain link` make the symlinks so `.agents/skills` stays the one canonical copy.

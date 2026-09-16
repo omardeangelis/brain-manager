@@ -59,7 +59,10 @@ describe("fresh init — claude (skills-capable + agent-capable)", () => {
     // scaffold + managed suites
     expect(fs.existsSync(path.join(dir, "brain", "AGENTS.md"))).toBe(true)
     expect(fs.existsSync(path.join(dir, ".agents", "skills", "create-spec", "SKILL.md"))).toBe(true)
+    expect(fs.existsSync(path.join(dir, ".agents", "skills", "prototype", "SKILL.md"))).toBe(true)
+    expect(fs.existsSync(path.join(dir, ".agents", "skills", "prototype", "PICKER.md"))).toBe(true)
     expect(fs.existsSync(path.join(dir, ".agents", "agents", "ux-advisor.md"))).toBe(true)
+    expect(fs.existsSync(path.join(dir, ".agents", "agents", "design-engineer.md"))).toBe(true)
 
     // provider symlinks
     const skillsLink = path.join(dir, ".claude", "skills")
@@ -105,6 +108,7 @@ describe("fresh init — codex (router-only, no agent format)", () => {
 
     // agents are still installed canonically (inert until an agent-capable tool is wired)
     expect(fs.existsSync(path.join(dir, ".agents", "agents", "ux-advisor.md"))).toBe(true)
+    expect(fs.existsSync(path.join(dir, ".agents", "agents", "design-engineer.md"))).toBe(true)
 
     const manifest = readManifest(dir)
     expect(manifest.links.length).toBe(0)

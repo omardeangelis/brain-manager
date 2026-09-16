@@ -78,6 +78,7 @@ If this project defines advisor agents (see `## Project Advisors`), delegate to 
 
 - **the data/schema layer** → invoke a project advisor agent (see the skill's `## Project Advisors` section, populated by init-brain) via the `Agent` tool. Brief it with the task description, the proposed schema change, and any relevant SPEC excerpt. Apply its recommendations (column types, nullability, FK cascades, index coverage, migration reversibility) before writing the RED test for that task.
 - **a user-facing app surface** → if implementation reveals UX friction not anticipated in the spec, pause and invoke a project advisor agent (see the skill's `## Project Advisors` section, populated by init-brain) via the `Agent` tool. Apply its recommendations or log the deviation to `IMPLEMENTATION-NOTES.md` if you override them.
+- **motion / UI polish** (a task with motion targets or `review_mode: browser`, or an animation decision the plan left open) → invoke the shipped **`design-engineer`** agent via the `Agent` tool. Brief it with the task, the target values from `PLAN.md`, and the components involved; apply its exact values (easing, duration, origin, reduced-motion) or log the deviation to `IMPLEMENTATION-NOTES.md`.
 
 Skipping an advisor when its trigger fires must be justified in the conversation (e.g., "schema change is a trivial NOT NULL → NULL flip, advisor pass skipped"). Silent skips are not allowed.
 
@@ -146,6 +147,7 @@ Before reporting back:
 - ensure **Remaining work** matches any unmet or blocked criteria
 - set `SPEC.md` frontmatter `status: implemented`
 - set `PLAN.md` `**Status:** Complete` when that line exists
+- if `SPEC.md` cites a `prototype` surface (path + route), delete it — the winner is implemented now (prototype Hard Rule 5) — and note the removal in `IMPLEMENTATION-NOTES.md`
 
 ## 13. Final report shape
 
