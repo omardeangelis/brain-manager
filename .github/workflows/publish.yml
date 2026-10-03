@@ -1,13 +1,17 @@
 name: Publish
 
-# Every push to main is verified (typecheck + tests) and, when the version in
-# package.json is not on npm yet, published. A merge that doesn't bump the
-# version is a no-op, so releasing = bumping the version in the PR.
+# Every push to main is verified (typecheck + tests). When the push bumps the
+# version in package.json, that version is STAGED on npm (`npm stage publish`):
+# it becomes installable only after a maintainer approves it with 2FA — on
+# npmjs.com or with `npm stage approve <stage-id>` (the id is in the run
+# summary). Merges that don't bump the version stage nothing, so releasing =
+# bumping the version in the PR, then approving it.
 #
 # Auth is npm trusted publishing (OIDC): no token is stored in this repo. The
-# package's trusted publisher on npmjs.com must name this repo and this file
-# (`publish.yml`) and allow direct `npm publish`. Provenance is attached
-# automatically.
+# package's trusted publisher on npmjs.com names this repo and this file
+# (`publish.yml`) and allows only `npm stage publish`, so CI can never publish
+# directly. Provenance is attached automatically. A manual run
+# (workflow_dispatch) stages the current version if it isn't on npm yet.
 
 on:
   push:
@@ -27,6 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # read package.json as it was before the push
 
       - uses: actions/setup-node@v7
         with:
@@ -34,7 +40,7 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
-      # Trusted publishing needs npm >= 11.5.1.
+      # Trusted publishing needs npm >= 11.5.1, `npm stage` >= 11.15.0.
       - run: npm install -g npm@latest
 
       - run: npm ci
@@ -44,20 +50,48 @@ jobs:
           npm run check
           npm test
 
-      - name: Check whether this version is already on npm
+      # A version waiting in the stage queue can't be staged again, and CI
+      # can't read the queue (that needs 2FA). So stage only when this push
+      # changed the version — a manual run skips that check — and the version
+      # isn't published yet.
+      - name: Decide whether to stage
         id: version
+        env:
+          BEFORE: ${{ github.event.before }}
         run: |
           name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
-          if npm view "$name@$version" version >/dev/null 2>&1; then
-            echo "$name@$version is already on npm — nothing to publish."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          previous=""
+          if [ -n "$BEFORE" ]; then
+            previous=$(git show "$BEFORE:package.json" 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version" 2>/dev/null || true)
+          fi
+          if [ "$previous" = "$version" ]; then
+            echo "Version unchanged ($version) — nothing to stage."
+            echo "stage=false" >> "$GITHUB_OUTPUT"
+          elif npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already on npm — nothing to stage."
+            echo "stage=false" >> "$GITHUB_OUTPUT"
           else
-            echo "$name@$version is not on npm yet — publishing."
-            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "$name@$version is new — staging it."
+            echo "stage=true" >> "$GITHUB_OUTPUT"
           fi
 
       # prepublishOnly rebuilds from a clean dist/ and reruns the tests.
-      - name: Publish
-        if: steps.version.outputs.publish == 'true'
-        run: npm publish
+      - name: Stage on npm
+        if: steps.version.outputs.stage == 'true'
+        env:
+          PKG: ${{ steps.version.outputs.name }}@${{ steps.version.outputs.version }}
+        run: |
+          npm stage publish 2>&1 | tee stage.log
+          id=$(grep -oE 'staged with id [0-9a-f-]+' stage.log | awk '{print $4}' || true)
+          {
+            echo "### $PKG is staged — approve it to publish"
+            echo
+            echo "Approve it on npmjs.com (the package's stage queue) or from a terminal, with 2FA:"
+            echo
+            echo '```bash'
+            echo "npm stage approve ${id:-<stage-id>}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
