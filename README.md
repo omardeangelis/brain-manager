@@ -82,7 +82,7 @@ Built with [Effect](https://effect.website) (`@effect/cli`, `@effect/platform`).
 
 ## Development & maintaining
 
-This repo is the single source of truth. Releases are automatic: bump `version` in `package.json` in your PR, and when it merges to `main` the [Publish workflow](.github/workflows/publish.yml) verifies and publishes it to npm (trusted publishing, with provenance); merges that don't bump the version publish nothing. End users get everything through `npx` / `npm` — **a clone is never required** to use brain-manager. They install the skill with `brain install-skill` and pick up new versions via `npx`/`npm update` and `brain upgrade`.
+This repo is the single source of truth. Releases are automatic: bump `version` in `package.json` in your PR, and when it merges to `main` the [Publish workflow](.github/workflows/publish.yml) verifies it and stages it on npm (trusted publishing, with provenance). A staged version goes live only once a maintainer approves it with 2FA, on npmjs.com or with `npm stage approve <stage-id>` (the id is in the run summary); merges that don't bump the version stage nothing. End users get everything through `npx` / `npm` — **a clone is never required** to use brain-manager. They install the skill with `brain install-skill` and pick up new versions via `npx`/`npm update` and `brain upgrade`.
 
 If you're hacking on the CLI or the skill itself, install the skill as a **symlink** to your working copy so edits are picked up live (instead of `brain install-skill`, which copies):
 
