@@ -6,7 +6,7 @@ This file defines how any agent operates within `brain/`. Read it before creatin
 
 ## Skill Routing
 
-Primary skills here: `create-spec`, `create-plan`, `implement-spec`, `adversarial-review`, `docs-maintenance`, `grill-me`, `swarm-plan`, `tdd`, `simplify`.
+Primary skills here: `create-spec`, `create-plan`, `implement-spec`, `adversarial-review`, `docs-maintenance`, `grill-me`, `swarm-plan`, `tdd`, `simplify`, `design-engineering`.
 
 - Use `create-spec` to author a `SPEC.md` in the problem space (the *what*, not the *how*).
 - Use `create-plan` to turn an approved spec into an execution-ready `PLAN.md`. It wraps `grill-me`, `swarm-plan`, and `tdd` as inner phases.
@@ -17,6 +17,7 @@ Primary skills here: `create-spec`, `create-plan`, `implement-spec`, `adversaria
 - `SPEC.md` and `IMPLEMENTATION-NOTES.md` remain the source material, but the ingest orchestrator may update their frontmatter/link bookkeeping (`ingested`, `last_ingested`, backlinks) as part of the pipeline.
 - Use `adversarial-review` as an independent, bias-free quality gate on a code change or spec implementation: it classifies the change (`review-classifier`) then fans out independent `adversarial-verifier` passes and writes a SHIP / DO-NOT-SHIP `REPORT.md`.
 - Use `prototype` — **explicit invocation only**, never auto-routed — to explore N genuinely different variants of one UI piece behind a visual picker. The winner is never integrated by hand: it becomes the input to `create-spec`, and the prototype surface is deleted once `implement-spec` lands the real implementation.
+- `design-engineering` is the motion-craft reference: it loads on its own whenever motion is written, reviewed, or fixed (standards with exact values, gestures, scroll, reduced motion, performance) and holds the review, audit, opportunities, diagnosis, and motion-brief procedures. Advisory motion work goes through the `design-engineer` agent, which routes to it. Its code examples are React; `chore/motion-stack.md` (written by its stack-adaptation procedure, at init or on first use) maps them to the project's own stack. Record project-specific motion decisions in `chore/` (e.g. `chore/motion.md`), not by editing the skill.
 
 ### Advisor subagents
 
@@ -25,7 +26,7 @@ Shipped advisor subagents live in `.agents/agents/` (symlinked into each capable
 - `ux-advisor` — writes a spec's `FLOW.md` (user-flow contract) and pressure-tests implementation order.
 - `adversarial-verifier` — clean-context quality gate that builds the strongest case against an artifact (spec, plan, or diff) and returns SHIP / DO NOT SHIP.
 - `review-classifier` — routes the `adversarial-review` pipeline (how many verifier passes, at what depth).
-- `design-engineer` — motion / interaction-craft advisor: motion budget and exact values (easing, durations, springs, reduced motion) in `create-plan`, pre-task motion decisions in `implement-spec`, the motion-craft bar for an `adversarial-review` verifier pass, and read-only motion audits written to `chore/animation-plans/`. Routes to the project's `design-engineering` skill when one exists, else its built-in baseline.
+- `design-engineer` — motion / interaction-craft advisor: motion budget and exact values (easing, durations, springs, reduced motion) in `create-plan`, pre-task motion decisions in `implement-spec`, the motion-craft bar for an `adversarial-review` verifier pass, and read-only motion audits written to `chore/animation-plans/`. Routes every mode to the shipped `design-engineering` skill (project tokens and documented motion decisions in `chore/` win over it), with a built-in baseline as fallback.
 
 > **No subagent runtime?** Most non-Claude tools cannot spawn subagents yet. When that is your case, do **not** skip the advisor steps — run the named advisor's charter (`.agents/agents/<name>.md`) inline in your main context: you lose the clean-context isolation but keep the same rubric and the same checks. Skipping is only for when the advisor file is not installed at all.
 
@@ -74,6 +75,7 @@ PM-authored specifications organized by domain. Agents should treat their produc
 Repo-level planning scratch. Allowed to be informal. Promote durable decisions into `domains/<domain>/decisions/`.
 
 - e.g. `tech-stack.md`, product description, user stories, implementation backlog
+- `motion-stack.md` — the frontend stack and its translation of the `design-engineering` references' React APIs (regenerate when the stack changes; never hand-patch)
 - `animation-plans/` — prioritized motion audit plans written by the `design-engineer` agent (read-only on source; promote large findings to `create-spec`)
 
 ### `domains/<name>/` — Synthesized Domain Knowledge

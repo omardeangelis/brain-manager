@@ -22,7 +22,7 @@ grep -rIlE "docs/|wiki/|\.notes/" "$SKILLS_DIR" 2>/dev/null && echo "WARN: skill
 Confirm none of the managed skills carry foreign project tokens (they ship generic):
 
 ```bash
-grep -rInE "apps/(api|website|spa)|db-schema-architect|ux-research-advisor|opensrc|write-backlog|create-brain-domain" "$SKILLS_DIR"/{create-spec,create-plan,grill-me,tdd,swarm-plan,implement-spec,docs-maintenance,adversarial-review,prototype} 2>/dev/null \
+grep -rInE "apps/(api|website|spa)|db-schema-architect|ux-research-advisor|opensrc|write-backlog|create-brain-domain" "$SKILLS_DIR"/{create-spec,create-plan,grill-me,tdd,swarm-plan,implement-spec,docs-maintenance,adversarial-review,prototype,design-engineering} 2>/dev/null \
   && echo "WARN: residual hardcoded tokens (advisor names are OK only inside the advisors markers)" \
   || echo "skills are generic ✅"
 ```
@@ -37,7 +37,20 @@ The agent-browser CLI is optional (only needed for browser/mixed validation):
 command -v agent-browser >/dev/null 2>&1 && echo "ok  agent-browser CLI" || echo "note: agent-browser CLI not installed (npm i -g agent-browser when browser validation is needed)"
 ```
 
-## 3. Print the report
+## 3. Stack profile
+
+```bash
+test -f brain/chore/motion-stack.md && echo "ok  stack profile" || echo "WARN: no brain/chore/motion-stack.md — run Step 4"
+```
+
+Then read it and check by judgment:
+
+- Its Framework row matches the `frontend` lines from `$BRAIN scan` (or the user's answer when detection fell short).
+- On a stack other than React on the web, every Translation row has a source URL and a status (`verified (vX)`, `unverified`, or `none → fallback`). An empty status means the research was skipped.
+- It is listed under "Chore" in `brain/index.md`.
+- The installed `design-engineering` skill is unmodified (`$BRAIN doctor` shows no `modified` under it) — the adaptation lives in the profile only.
+
+## 4. Print the report
 
 Summarize for the user:
 
@@ -47,6 +60,7 @@ Summarize for the user:
 - **Agents:** the four shipped advisors installed once into `.agents/agents` (`ux-advisor`, `design-engineer`, `adversarial-verifier`, `review-classifier`)
 - **Providers:** which were wired, and the symlinks created (`.claude/skills → ../.agents/skills`, `.claude/agents → ../.agents/agents`, `CLAUDE.md → AGENTS.md`, …)
 - **Migration only:** what was moved (source → dest) and what was deleted
+- **Stack profile:** the detected frontend stack, whether the references apply as written (React) or through a researched translation, any `unverified` rows, and the open decisions (libraries the stack lacks — nothing installed)
 - **Advisors:** the shipped four are wired into the skill bodies by default; list any *additional* project advisors detected and where each was wired (or "none beyond the shipped four")
 - **Maintenance:** future syncs are `$BRAIN upgrade`; health checks are `$BRAIN doctor`
 - **Next step:** run `create-spec` to author the first `SPEC.md`, then `create-plan` → `implement-spec` → `docs-maintenance`. Fill in the project's real gates (build/test/lint, review) in the repo-root `AGENTS.md`.

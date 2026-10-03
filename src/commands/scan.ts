@@ -1,6 +1,15 @@
 import { Command, Options } from "@effect/cli"
 import { FileSystem, Path } from "@effect/platform"
 import { Console, Effect } from "effect"
+import {
+  type FrontendFinding,
+  collectDeps,
+  describeFinding,
+  detectNative,
+  detectPackage,
+  dropNativeShells,
+  stackVerdict
+} from "../core/frontend.js"
 import { MANIFEST_PATH, decodeManifest } from "../core/manifest.js"
 import { CANONICAL_SKILLS_DIR, PROVIDERS, skillCapable } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
@@ -10,8 +19,9 @@ import { exists, pathFact, readTextOrNull } from "../services/fsx.js"
 /**
  * `brain scan` — the mechanical half of mode-detection and migration
  * discovery. It finds legacy knowledge stores, loose spec files, agent
- * definitions, and installed skills, and reports them. Deciding what the
- * findings MEAN (fresh vs migration, advisor classification, content mapping)
+ * definitions, the frontend stack, and installed skills, and reports them.
+ * Deciding what the findings MEAN (fresh vs migration, advisor
+ * classification, content mapping, adapting design-engineering to the stack)
  * is the LLM's job — feed this report to the init-brain skill.
  */
 
@@ -30,6 +40,11 @@ const IGNORED = new Set([
   ".claude", ".agents", ".idea", ".vscode", "coverage", "target", "vendor"
 ])
 const MAX_DEPTH = 5
+/** Manifests that can declare a frontend stack (see core/frontend.ts). */
+const STACK_FILES = new Set(["package.json", "pubspec.yaml", "Package.swift", "build.gradle", "build.gradle.kts"])
+/** Native build output too large to walk and never holding the app's own manifest. */
+const STACK_IGNORED = new Set(["Pods", "DerivedData", ".dart_tool"])
+const STACK_DEPTH = 4
 
 export const scanCommand = Command.make("scan", { json }, (opts) =>
   Effect.gen(function* () {
@@ -116,6 +131,40 @@ export const scanCommand = Command.make("scan", { json }, (opts) =>
       }
     }
 
+    // --- frontend stack (adapts the design-engineering skill) ---------------
+    const stack: Array<FrontendFinding> = []
+    const findStack = (dir: string, depth: number): Effect.Effect<void, never, FileSystem.FileSystem | Path.Path> =>
+      Effect.gen(function* () {
+        if (depth > STACK_DEPTH) return
+        const entries = yield* fs.readDirectory(dir === "" ? "." : dir).pipe(
+          Effect.orElseSucceed(() => [] as Array<string>)
+        )
+        for (const entry of entries.sort()) {
+          if (IGNORED.has(entry) || STACK_IGNORED.has(entry) || entry.startsWith(".")) continue
+          const rel = dir === "" ? entry : `${dir}/${entry}`
+          const stat = yield* fs.stat(rel).pipe(Effect.option)
+          if (stat._tag === "None") continue
+          if (stat.value.type === "Directory") {
+            if (entry.endsWith(".xcodeproj")) {
+              const hit = detectNative(rel, entry, null)
+              if (hit !== null) stack.push(hit)
+            } else {
+              yield* findStack(rel, depth + 1)
+            }
+          } else if (STACK_FILES.has(entry)) {
+            const content = yield* readTextOrNull(rel).pipe(Effect.orElseSucceed(() => null))
+            if (content === null) continue
+            const hit = entry === "package.json"
+              ? detectPackage(rel, collectDeps(yield* Effect.try(() => JSON.parse(content)).pipe(Effect.orElseSucceed(() => null))))
+              : detectNative(rel, entry, content)
+            if (hit !== null) stack.push(hit)
+          }
+        }
+      })
+    yield* findStack("", 0)
+    const frontends = dropNativeShells(stack)
+    for (const f of frontends) lines.push({ path: f.path, status: "frontend", note: describeFinding(f) })
+
     // --- routers + skills ----------------------------------------------------
     for (const router of ["CLAUDE.md", "AGENTS.md"]) {
       if (yield* exists(router)) lines.push({ path: router, status: "router" })
@@ -153,11 +202,12 @@ export const scanCommand = Command.make("scan", { json }, (opts) =>
       lines.push({ path: p.dir ?? p.rootFile!, status: "provider", note: `${p.label} (${p.id}) — ${layer}; ${wired}` })
     }
 
+    notes.push(stackVerdict(frontends))
     notes.push(
-      "scan is mechanical: deciding fresh-init vs migration, which providers to wire, mapping legacy content into brain/, and classifying advisor agents is the LLM's job (see the init-brain skill)"
+      "scan is mechanical: deciding fresh-init vs migration, which providers to wire, mapping legacy content into brain/, classifying advisor agents, and adapting design-engineering to the frontend stack is the LLM's job (see the init-brain skill)"
     )
 
     const report = { command: "scan", lines, notes, ok: true }
     yield* Console.log(opts.json ? renderReportJson(report) : renderReport(report))
   })
-).pipe(Command.withDescription("Inventory the repo: legacy doc stores, loose specs, agent definitions, installed skills (read-only)."))
+).pipe(Command.withDescription("Inventory the repo: legacy doc stores, loose specs, agent definitions, frontend stack, installed skills (read-only)."))
