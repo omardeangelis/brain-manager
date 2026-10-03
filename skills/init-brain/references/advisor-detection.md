@@ -48,4 +48,4 @@ Show the user the detected agents and the per-skill wiring you applied. Keep nam
 
 ## 5. Continue
 
-Return to `SKILL.md` Step 4 (router pointer), then Step 5 ([verify.md](verify.md)).
+Return to `SKILL.md` Step 4 (stack adaptation), then Step 5 (router pointer) and Step 6 ([verify.md](verify.md)).

@@ -12,7 +12,7 @@ automated rows; the rest are a manual smoke pass.
 
 | Scenario | Command | Expect | |
 |---|---|---|---|
-| Claude (skills + agents) | `init --providers claude` | brain/ scaffolded; 10 skills in `.agents/skills`, 4 agents in `.agents/agents`; `.claude/{skills,agents}` + `CLAUDE.md` symlinks; manifest has an `agents` link | [auto] |
+| Claude (skills + agents) | `init --providers claude` | brain/ scaffolded; 11 skills in `.agents/skills`, 4 agents in `.agents/agents`; `.claude/{skills,agents}` + `CLAUDE.md` symlinks; manifest has an `agents` link | [auto] |
 | Brain Schema is managed | `init --providers claude` | manifest role: `brain/AGENTS.md` + `brain/CLAUDE.md` = `managed`, `brain/index.md` = `seed` | [auto] |
 | Router-only (codex/cursor) | `init --providers codex` | `AGENTS.md` is a real file (not symlink); no `.codex/skills` or `.codex/agents`; agents still in `.agents/agents`; manifest links empty | [auto] |
 | Multi-provider | `init --providers claude,codex,cursor` | only claude gets symlinks; codex/cursor covered by `AGENTS.md` | [man] |
@@ -29,6 +29,9 @@ automated rows; the rest are a manual smoke pass.
 | Schema not clobbered | locally edited schema file | `conflict`, skipped (— `--force` to overwrite) | [auto] |
 | Legacy `.claude/skills` migration | pre-`.agents/` install | relocated to `.agents/skills`, old path symlinked back | [man] |
 | Idempotent re-run | upgrade twice | second run quiet (only version note) | [man] |
+| Scoped upgrade | `upgrade --skill design-engineering` on an older install missing it and its agent | installs that skill plus the `design-engineer` agent linked to it; other files, their manifest hashes, and the manifest version untouched; an unknown name fails listing the bundled skills | [auto] |
+| Single-skill install | `install-skill design-engineering --skills-dir <dir>/skills` (no brain) | copies only that skill plus `design-engineer` into `<dir>/agents`; re-run up-to-date; an edited agent is kept (`exists`) until `--force`; a skill with no linked agent installs alone | [auto] |
+| Skill↔agent link | `design-engineer.md` frontmatter | lists `design-engineering` under `skills:` (Claude Code preloads it) | [auto] (`companions` tests) |
 | Advisor block survives | wire a `## Project Advisors` block, then upgrade | block carried over (hash-normalized) | [auto] (`advisors` tests) |
 | `--dry-run` | — | nothing written | [man] |
 
@@ -41,6 +44,8 @@ automated rows; the rest are a manual smoke pass.
 | Healthy install | `doctor` | exit 0 | [auto] |
 | Drift / missing link | break a symlink | exit 1 with `missing-link`/`modified` | [man] |
 | Inventory | `scan` | providers, skills, agents, legacy stores listed correctly | [man] |
+| Frontend stack | `scan` on React / Vue / RN / backend-only repos | one `frontend` line per manifest; native shells and `node_modules` ignored; verdict note says as-written / adapt / ask | [auto] (`frontend` tests + integration) |
+| Stack adaptation | init-brain Step 4 on a non-React repo | `brain/chore/motion-stack.md` with every checklist row sourced and statused; skill files untouched | [man] |
 
 ## Edge / output
 

@@ -1,6 +1,7 @@
 import { FileSystem, Path } from "@effect/platform"
 import { Effect } from "effect"
 import { homedir } from "node:os"
+import { join } from "node:path"
 
 /**
  * The GLOBAL skills directory under the user's home — where cross-project
@@ -16,3 +17,10 @@ export const detectGlobalSkillsDir = Effect.gen(function* () {
   if (yield* fs.exists(agents)) return agents
   return path.join(home, ".claude", "skills")
 })
+
+/**
+ * The GLOBAL agents directory: `~/.claude/agents`, the only user-level
+ * subagent directory a supported provider reads (Claude Code). Where
+ * `brain install-skill` puts the agents linked to a skill by default.
+ */
+export const globalAgentsDir = (): string => join(homedir(), ".claude", "agents")

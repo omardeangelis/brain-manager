@@ -26,7 +26,7 @@ description: Implement an approved spec folder while keeping `IMPLEMENTATION-NOT
 **Pre-task** — before starting a task whose `location` matches a trigger (see [references/lifecycle.md](references/lifecycle.md) §6):
 
 - user-facing-flow tasks → the **`ux-advisor`** agent (shipped) when UX friction surfaces beyond `SPEC.md`/`FLOW.md`. Treat `FLOW.md`'s error/edge paths as part of the task's acceptance surface, not optional polish.
-- motion / UI-polish tasks (a `review_mode: browser` task carrying motion targets, or any task where an animation decision surfaces beyond `PLAN.md`) → the **`design-engineer`** agent (shipped) to resolve the exact values and the implementation route before the RED test. It advises only; it never writes the code.
+- motion / UI-polish tasks (a `review_mode: browser` task carrying motion targets, or any task where an animation decision surfaces beyond `PLAN.md`) → the **`design-engineer`** agent (shipped) to resolve the exact values and the implementation route before the RED test; while writing the motion code, follow the `design-engineering` skill's `references/implementation.md` and `references/accessibility.md` (every movement ships its reduced-motion variant). The agent advises only; it never writes the code.
 - data/schema-layer tasks → the project's schema/data advisor agent, if one is defined (see `## Project Advisors`; not shipped by default).
 
 **Post-implementation gate** — before the shared acceptance audit / finalization:

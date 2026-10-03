@@ -229,7 +229,7 @@ export const initCommand = Command.make(
           `manifest written to ${MANIFEST_PATH}`,
           "`$simplify` is expected as a global/built-in skill — not bundled",
           "the agent-browser CLI is a separate global install (`npm i -g agent-browser`) — only needed for browser validation",
-          `next: wire project advisors (the \`${ADVISORS_START}\` blocks), then run \`brain doctor\``
+          `next: wire project advisors (the \`${ADVISORS_START}\` blocks), adapt design-engineering to the frontend stack (${targetSkillsDir}/design-engineering/references/stack-adaptation.md → brain/chore/motion-stack.md), then run \`brain doctor\``
         ],
         ok: true
       }

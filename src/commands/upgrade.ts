@@ -1,6 +1,7 @@
 import { Command, Options } from "@effect/cli"
-import { Console, Effect } from "effect"
+import { Console, Effect, Option } from "effect"
 import { carryAdvisorsOver, hasAdvisorMarkers } from "../core/advisors.js"
+import { agentName, companionAgents } from "../core/companions.js"
 import { contentHash } from "../core/hash.js"
 import { MANIFEST_PATH, type Manifest, type ManifestEntry, decodeManifest, defaultRole, encodeManifest, reconcileRoles, rewriteSkillsDir } from "../core/manifest.js"
 import { planUpgrade, type UpgradeAction } from "../core/plan.js"
@@ -9,7 +10,7 @@ import { type ReportLine, renderReport, renderReportJson } from "../core/report.
 import { stampToday } from "../core/stamp.js"
 import { CliError } from "../errors.js"
 import { Assets, type AssetFile } from "../services/Assets.js"
-import { readTextOrNull, writeText } from "../services/fsx.js"
+import { exists, readTextOrNull, writeText } from "../services/fsx.js"
 import { detectProviders, runLink } from "../services/linker.js"
 import { VERSION } from "../version.js"
 
@@ -19,6 +20,12 @@ import { VERSION } from "../version.js"
  * to update) from "locally modified" (conflict: skipped unless --force).
  * Seed files (brain/ content, project-owned agent-browser) are only restored
  * when missing, never overwritten. Advisor blocks survive every update.
+ *
+ * `--skill <name>` narrows the run to one bundled skill and the agents linked
+ * to it (their `skills:` list, see core/companions.ts): installed when absent,
+ * synced when present, with the same conflict rules, while every other
+ * manifest entry is carried over untouched and the manifest keeps its version,
+ * since only part of it moved.
  */
 
 const force = Options.boolean("force").pipe(
@@ -33,6 +40,16 @@ const json = Options.boolean("json").pipe(
 const noMigrate = Options.boolean("no-migrate").pipe(
   Options.withDescription("Skip the automatic migration to the .agents/-canonical layout.")
 )
+const skill = Options.text("skill").pipe(
+  Options.withPseudoName("name"),
+  Options.repeated,
+  Options.withDescription(
+    "Install or update only this bundled skill and the agents linked to it (repeatable or comma-separated); everything else is left as it is."
+  ),
+  Options.optional
+)
+
+const STACK_PROFILE = "brain/chore/motion-stack.md"
 
 const STATUS: Record<UpgradeAction["_tag"], string> = {
   Install: "installed",
@@ -46,10 +63,29 @@ const STATUS: Record<UpgradeAction["_tag"], string> = {
 
 export const upgradeCommand = Command.make(
   "upgrade",
-  { force, dryRun, json, noMigrate },
+  { force, dryRun, json, noMigrate, skill },
   (opts) =>
     Effect.gen(function* () {
       const assets = yield* Assets
+
+      const selected = [
+        ...new Set(
+          Option.getOrElse(opts.skill, () => [])
+            .flatMap((s) => s.split(","))
+            .map((s) => s.trim().replace(/\/+$/, ""))
+            .filter((s) => s.length > 0)
+        )
+      ]
+      const unknown = selected.filter((s) => !assets.skills.has(s))
+      if (unknown.length > 0) {
+        return yield* new CliError({
+          message: `unknown skill ${unknown.join(", ")} — bundled skills: ${assets.skillNames.join(", ")}`
+        })
+      }
+      const scoped = selected.length > 0
+      // Agents linked to a selected skill travel with it.
+      const companions = companionAgents(assets.agents)
+      const linkedAgents = [...new Set(selected.flatMap((s) => companions.get(s) ?? []))]
 
       const manifestRaw = yield* readTextOrNull(MANIFEST_PATH)
       if (manifestRaw === null) {
@@ -69,7 +105,8 @@ export const upgradeCommand = Command.make(
       // (everything already linked) adds no noise — only changed links are shown.
       const migrationLines: Array<ReportLine> = []
       let didMigrate = false
-      if (!opts.noMigrate) {
+      // A scoped run leaves the layout alone too: only the named skills move.
+      if (!opts.noMigrate && !scoped) {
         const migrating = manifest.skillsDir !== CANONICAL_SKILLS_DIR
         const owner = migrating ? providerForSkillsDir(manifest.skillsDir) : undefined
         const recorded = manifest.providers.map(byId).filter((p): p is Provider => p !== undefined)
@@ -106,27 +143,37 @@ export const upgradeCommand = Command.make(
       // they pick up schema updates as managed files (pre-split installs only).
       manifest = { ...manifest, files: reconcileRoles(manifest.files) }
 
-      // Bundled assets, keyed by their path in this project.
-      const assetFiles = new Map<string, AssetFile>(assets.brain)
-      for (const files of assets.skills.values()) {
+      // Bundled assets in scope, keyed by their path in this project.
+      const assetFiles = new Map<string, AssetFile>(scoped ? [] : assets.brain)
+      for (const [name, files] of assets.skills) {
+        if (scoped && !selected.includes(name)) continue
         for (const [rel, asset] of files) {
           assetFiles.set(`${manifest.skillsDir}/${rel}`, asset)
         }
       }
       for (const [rel, asset] of assets.agents) {
+        if (scoped && !linkedAgents.includes(rel)) continue
         assetFiles.set(`${CANONICAL_AGENTS_DIR}/${rel}`, asset)
       }
       const assetHashes = new Map([...assetFiles].map(([p, a]) => [p, a.hash]))
 
+      // Out-of-scope entries are carried into the new manifest as they are.
+      const inScope = (path: string): boolean =>
+        !scoped ||
+        selected.some((name) => path.startsWith(`${manifest.skillsDir}/${name}/`)) ||
+        linkedAgents.some((rel) => path === `${CANONICAL_AGENTS_DIR}/${rel}`)
+      const carried = manifest.files.filter((f) => !inScope(f.path))
+      const scopedFiles = manifest.files.filter((f) => inScope(f.path))
+
       // Disk state for every path either side knows about.
-      const paths = new Set([...assetHashes.keys(), ...manifest.files.map((f) => f.path)])
+      const paths = new Set([...assetHashes.keys(), ...scopedFiles.map((f) => f.path)])
       const diskContent = new Map<string, string | null>()
       for (const p of paths) diskContent.set(p, yield* readTextOrNull(p))
       const diskHashes = new Map(
         [...diskContent].map(([p, c]) => [p, c === null ? null : contentHash(c)])
       )
 
-      const actions = planUpgrade({ manifestFiles: manifest.files, assetHashes, diskHashes })
+      const actions = planUpgrade({ manifestFiles: scopedFiles, assetHashes, diskHashes })
 
       const oldRole = new Map(manifest.files.map((f) => [f.path, f.role]))
       const oldHash = new Map(manifest.files.map((f) => [f.path, f.hash]))
@@ -202,32 +249,49 @@ export const upgradeCommand = Command.make(
       if (!opts.dryRun) {
         const now = new Date().toISOString()
         const next: Manifest = {
-          packageVersion: VERSION,
+          packageVersion: scoped ? manifest.packageVersion : VERSION,
           createdAt: manifest.createdAt,
           updatedAt: now,
           skillsDir: manifest.skillsDir,
-          files: entries.sort((a, b) => a.path.localeCompare(b.path)),
+          files: [...carried, ...entries].sort((a, b) => a.path.localeCompare(b.path)),
           providers: manifest.providers,
           links: manifest.links
         }
         yield* writeText(MANIFEST_PATH, yield* encodeManifest(next))
       }
 
+      // The design-engineering skill speaks React until the project's stack
+      // profile exists; that file is LLM-written (stack-adaptation.md), so the
+      // CLI only points at it.
+      const stackProfileMissing =
+        assetFiles.has(`${manifest.skillsDir}/design-engineering/SKILL.md`) &&
+        !(yield* exists(STACK_PROFILE))
+
       const allLines = [...migrationLines, ...lines]
       const conflicts = allLines.filter((l) => l.status === "conflict").length
       const report = {
-        command: opts.dryRun ? "upgrade --dry-run" : "upgrade",
+        command: ["upgrade", ...(scoped ? [`--skill ${selected.join(",")}`] : []), ...(opts.dryRun ? ["--dry-run"] : [])].join(" "),
         lines: allLines,
         notes: [
-          `manifest: ${manifest.packageVersion} -> ${VERSION}`,
+          scoped
+            ? `only ${selected.join(", ")}${linkedAgents.length > 0 ? ` (with the ${linkedAgents.map(agentName).join(", ")} agent)` : ""} synced — other skills, agents, and brain/ untouched` +
+              (manifest.packageVersion === VERSION
+                ? ""
+                : `; manifest stays at ${manifest.packageVersion} until a full \`brain upgrade\` to ${VERSION}`)
+            : `manifest: ${manifest.packageVersion} -> ${VERSION}`,
           ...(didMigrate
             ? [`migrated to the .agents/-canonical layout (skills now at ${CANONICAL_SKILLS_DIR})`]
             : []),
           ...(opts.dryRun ? ["dry run — nothing was written"] : []),
-          ...(conflicts > 0 ? [`${conflicts} conflict(s) skipped — re-run with --force to overwrite`] : [])
+          ...(conflicts > 0 ? [`${conflicts} conflict(s) skipped — re-run with --force to overwrite`] : []),
+          ...(stackProfileMissing
+            ? [`no ${STACK_PROFILE} yet — have your assistant run ${manifest.skillsDir}/design-engineering/references/stack-adaptation.md (otherwise it runs on the first motion task)`]
+            : [])
         ],
         ok: true
       }
       yield* Console.log(opts.json ? renderReportJson(report) : renderReport(report))
     })
-).pipe(Command.withDescription("Sync installed skills to this package version (manifest-aware, conflict-safe)."))
+).pipe(Command.withDescription(
+    "Sync installed skills to this package version (manifest-aware, conflict-safe); --skill limits it to one skill."
+  ))
