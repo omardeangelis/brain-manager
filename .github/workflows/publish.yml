@@ -29,6 +29,11 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # An explicit `bash` runs steps with -eo pipefail (the implicit default is
+    # only -e), so a failing `npm stage publish | tee` fails the step.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
         with:
