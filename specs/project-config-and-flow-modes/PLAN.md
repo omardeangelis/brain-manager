@@ -23,7 +23,13 @@ updated: 2026-10-05
    - [RESEARCH-ux-advisor.md](RESEARCH-ux-advisor.md): why the UX agent is redesigned, and the benchmark that accepts it;
    - `test/EVAL.md`: the release bar;
    - `README.md` § "How upgrades stay safe".
-2. **Resolve the open questions SPEC Q1–Q9 with the maintainer first.** The plan follows each recommendation. A different answer changes:
+2. **Resolve the open questions SPEC Q1–Q9 with the maintainer first.**
+   - **Resolved on 2026-10-05:**
+     - Q3: yes, plus screenshots;
+     - Q7: yes;
+     - Q8: yes, as small prototype changes iterated on.
+   - **Still open:** Q1, Q2, Q4, Q5, Q6, Q9.
+   - The plan follows each recommendation. A different answer changes:
    - Q1 → T11;
    - Q2 → T9;
    - Q3, Q8, Q9 → T11b;
@@ -274,7 +280,12 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
 - **description:** Per SPEC §4. This task moves the trigger; the agent itself is rewritten in T11b.
   - **prototype Phase 6:**
     - After the user approves a winner, and only then, spawn `ux-advisor`. Brief it with the five inputs of SPEC §4, including the dev-route URL and the list of what the prototype fakes.
-    - Relay the verdict to the user. On `rethink`, offer another Phase 3 round around the winner, or proceeding with the risk recorded (Q8).
+    - Relay the verdict to the user. On `iterate`, run the loop of SPEC §7.2 (Q8):
+      1. Show the at most 3 proposed changes; the user accepts all, some or none.
+      2. Apply the accepted ones to the winner under the Hard Rules.
+      3. Re-brief `ux-advisor` with the changed items for a re-review and regression pass.
+      4. Stop after 2 rounds.
+      5. Carry the applied changes into `create-spec` as decisions already taken, with exact values.
     - Otherwise pass the review into `create-spec`. If the run stops early, persist the review as `UX-REVIEW.md` next to the surviving variant (Q1).
   - **create-spec:**
     - Delete the auto `ux-advisor` step.
@@ -312,6 +323,7 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
     2. Moment table and verdicts, including when to decline (§7.2).
     3. Read the project: the config, `<personas>`, the domain page, the router, `brain/chore/ux-review.md`, and the component sources (§7.3, step 1).
     4. Method steps 2–9, with the `agent-browser` commands spelled out:
+       - `screenshot`, with the file opened and inspected;
        - `snapshot -i`;
        - `press`;
        - `set viewport` / `set device`;
@@ -331,7 +343,7 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
   - **agent-browser:** check whether the bundled skill text documents `a11y`. If upstream has it and the bundled text does not, note it in the agent ("if `agent-browser a11y` is unavailable, inject axe-core with `eval`"). Refreshing the bundled skill is a separate change, not part of this task.
 - **validation:**
   - `head -8 assets/agents/ux-advisor.md` shows the four tools and no `Write`, `Edit` or `memory:`.
-  - The agent has the §7.4 headings, the moment table, the three verdicts and the DEGRADED rule.
+  - The agent has the §7.4 headings (including "Prototype changes"), the moment table, the three verdicts (`proceed`, `proceed with decisions`, `iterate`), the small-change rule and the DEGRADED rule.
   - `grep -n "FLOW.md" assets/agents/ux-advisor.md` shows no authoring instructions.
   - `grep -n "error/edge path" assets/agents/adversarial-verifier.md` → no hits.
   - The body stays within about 220 lines.
@@ -423,6 +435,7 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
     - prototype → ux-advisor → create-spec handoff [man]: the verdict is relayed; decisions become AC; `FLOW.md` v2 cites the AC ids;
     - ux-advisor evidence and caps [man]: every finding has a location and evidence; at most 6 decisions and 3 open questions;
     - ux-advisor degraded mode [man]: with no browser, the banner appears and there are no runtime claims;
+    - iterate loop [man]: at most 3 changes, each accepted by the user and applied by `prototype` (never by the agent); a re-review follows; it stops at 2 rounds; the changes reach the spec as decisions;
     - ux-advisor declines on a spec draft with no rendered UI [man];
     - UX replay benchmark [man] (T17);
     - review ingest [man];

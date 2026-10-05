@@ -150,7 +150,11 @@ How much clean-context review the flows enforce. Explicit invocation (`/adversar
 The flow becomes:
 
 ```
-prototype  ──(user approves a winner: `keep <variant>` / Phase 6)──▶  ux-advisor (prototype review)  ──▶  create-spec
+prototype ──(user approves a winner: `keep <variant>` / Phase 6)──▶ ux-advisor (prototype review) ──▶ create-spec
+                                                                       │        ▲
+                                                     verdict `iterate` │        │ re-review (≤ 2 rounds)
+                                                                       ▼        │
+                                                     prototype applies ≤ 3 small changes to the winner
 ```
 
 **`ux-advisor` runs only here.** Its new primary mode, *prototype review*, is briefed self-contained with:
@@ -294,9 +298,29 @@ The agent opens by naming its moment from the brief, and behaves accordingly:
 | **Live-surface review** (explicit only) | the user, naming a shipped route ("this flow is clunky") | the running route and its code | a winner, a spec | the user, with a suggestion to run `/prototype` or `create-spec` |
 | **Anything else** (a spec draft, an idea, no rendered UI) | — | text only | — | one line naming the moment that fits; no review, no `FLOW.md` |
 
-**The approval sets a direction, not a frozen decision.** The old agent was told not to reopen decisions, and doubled down on choices the owner later reverted on screen (RESEARCH A1). Now, if a finding shows the core interaction failing a persona's primary task, the verdict is `rethink` and names the failing step. The user chooses: another prototype round (Phase 3, diverging around the winner) or proceeding with the risk recorded in the spec.
+**The approval sets a direction, not a frozen decision.** The old agent was told not to reopen decisions, and doubled down on choices the owner later reverted on screen (RESEARCH A1). Now, when a finding is better fixed on the prototype than described in the spec, the agent says so and the prototype is iterated before the spec is written. This is the maintainer's decision (Q8, 2026-10-05): **small changes to the prototype, iterated on**.
 
-Verdicts: `proceed` | `proceed with decisions` | `rethink`.
+Verdicts:
+- `proceed`: nothing blocks the spec.
+- `proceed with decisions`: the spec carries the decisions.
+- `iterate`: the review lists **at most 3 small prototype changes**.
+
+**What counts as a small change.** Each one:
+- is tied to a P0/P1 finding;
+- touches only the winner's surface;
+- keeps its direction (same axis, same motion line unless motion is the finding);
+- runs on the prototype's fake state machine;
+- states how to check it on screen. Example: the × moves out of the accordion trigger and gets a 44×44 target.
+
+**Anything bigger is not an `iterate`.** That covers a new direction, a new screen, or a change that needs the backend contract. It stays a P0 decision for the spec, and the user can still ask for a `riff` themselves.
+
+**The loop.**
+1. The `prototype` orchestrator shows the proposed changes; the user accepts all, some or none.
+2. The orchestrator applies the accepted ones to the winner, under the prototype's Hard Rules (isolated surface, never production code).
+3. `ux-advisor` re-reviews the changed items, plus a regression pass on the keyboard walk and the state matrix.
+4. At most 2 rounds, then `create-spec` regardless. The changes it made carry into the spec as decisions already taken, with their exact values, like the winner's own.
+
+The agent itself never edits the prototype. A reviewer that fixes its own findings loses the independence that makes its re-review worth anything, the same rule `adversarial-review` follows.
 
 ### 7.3 Method
 
@@ -307,6 +331,7 @@ Verdicts: `proceed` | `proceed with decisions` | `rethink`.
    - `brain/chore/ux-review.md` when present (§7.6);
    - the source of every component the winner uses, including the headless library's primitives (keyboard delegates, focus scopes, portals). That layer is where the reference project's shipped defects came from (RESEARCH A2).
 2. **Mechanical pass with tools** (`agent-browser`):
+   - **Screenshots:** a screenshot of every viewport, theme and forced state the review relies on. The agent opens them and looks: layout, truncation, contrast, hierarchy, jumps between states. The accessibility tree alone does not show what the user sees (Q3, 2026-10-05).
    - **Viewports:** 375 and 1280, plus 320 for reflow.
    - **Themes and motion:** every shipped theme, and reduced motion.
    - **axe:** `agent-browser a11y` when the CLI has it, else axe-core injected with `eval`. Violations become **one bundled list of mechanical fixes**, not prose. Its `incomplete` items go to manual checks.
@@ -330,7 +355,10 @@ Verdicts: `proceed` | `proceed with decisions` | `rethink`.
    - existing controls that strand users;
    - data assumptions the real records contradict.
 7. **Evidence gate.**
-   - Every finding carries a location (route plus accessibility-tree ref or selector, or `file:line`), the observed evidence (trace step, axe rule, matrix cell, code line) and repro steps.
+   - Every finding carries:
+     - a location: route plus accessibility-tree ref or selector, or `file:line`;
+     - the observed evidence: trace step, screenshot, axe rule, matrix cell or code line;
+     - repro steps.
    - No evidence → open question, never a finding.
 8. **Decide, rank, cap.**
    - At most **6 product decisions**, P0–P2, each with a one-line reason (frequency × impact). Repeats merge into one with a list of locations.
@@ -344,7 +372,8 @@ Verdicts: `proceed` | `proceed with decisions` | `rethink`.
 The agent **returns** the review to its caller; it writes no files. About 120 lines at most:
 
 ```markdown
-## Verdict: proceed | proceed with decisions | rethink — <one line>
+## Verdict: proceed | proceed with decisions | iterate — <one line>
+## Prototype changes    (only with iterate; ≤ 3, each: finding # → change → how to check it on screen)
 ## Decisions            (≤ 6, ranked)  | # | P | Decision needed | Recommended default | Acceptance criterion | Evidence |
 ## Mechanical fixes     (axe + keyboard, bundled; one line each with location)
 ## State matrix         | Region | empty | loading | error | partial | long | no permission | offline |
@@ -381,7 +410,7 @@ The agent **returns** the review to its caller; it writes no files. About 120 li
 
 - **tools:** `Read, Grep, Glob, Bash`.
   - `Bash` only for `agent-browser` and read-only commands; never edits, never installs.
-  - `Write` / `Edit` are removed: the orchestrator writes. This flips Q3.
+  - `Write` / `Edit` are removed: the orchestrator writes, the prototype included (§7.2, the loop).
 - **model:** `inherit`.
 - **memory:** none (Q5).
 - **Calibration.**
@@ -422,6 +451,7 @@ The redesign is accepted on the replay benchmark in RESEARCH part D (PLAN T17), 
 9. **UX runs only from `prototype`.**
    - `ux-advisor` is referenced as a trigger only by `prototype` (Phase 6 / `keep`).
    - `create-spec` consumes the handoff (§4) and writes `FLOW.md` v2 from `references/flow-map.md`.
+   - On `iterate`, `prototype` runs the loop of §7.2. The user accepts each change, there are at most 3 changes and 2 rounds, and the agent never edits the prototype.
 10. **Review ingest and FLOW parity.** `docs-maintenance` ingests review reports per §6.1, and the FLOW parity items of §6.2 are present.
 11. **Reference project, dry run.** On a throwaway worktree of the reference project (PLAN T16), init plus upgrade yield:
     - suite skills and shipped agents byte-identical to the package;
@@ -444,22 +474,24 @@ The redesign is accepted on the replay benchmark in RESEARCH part D (PLAN T17), 
   - If the user stops after the review, persist it as `UX-REVIEW.md` next to the surviving prototype variant. `create-spec` picks it up from the cited prototype path, and it is deleted with the surface.
 - **Q2 — Single-file tech-debt stores.** Support them as-is (append a `## <domain>/<spec>` section), or always migrate to per-spec files?
   - Recommendation: migrate. Per-spec files are what `docs-maintenance` and `review-ingest` address.
-- **Q3 — Live accessibility checks.** Should `ux-advisor` get `Bash` to drive `agent-browser` against the prototype route?
-  - Recommendation: **yes**, read-only. This reverses the first draft of this spec. Rendered evidence is the single biggest lever: the old agent never saw the UI, and every shipped defect class lived there (RESEARCH A2, B3). Observations relayed by the orchestrator are not enough, because the agent must force states and walk the keyboard itself.
+- **Q3 — Live accessibility checks. Resolved 2026-10-05: yes.** `ux-advisor` gets `Bash` to drive `agent-browser` against the prototype route, read-only. The maintainer adds that it must also **see the screens**: screenshots of every viewport and state it relies on, opened and inspected (§7.3, step 2).
+  - Rendered evidence is the single biggest lever: the old agent never saw the UI, and every shipped defect class lived there (RESEARCH A2, B3).
   - `Write` / `Edit` are dropped at the same time (§7.6).
 - **Q4 — `link --force` with a differing `CLAUDE.md`.** Refuse outright (recommended), or back it up somewhere first and then link?
 - **Q5 — Agent memory.** Should shipped agents declare `memory: project` (Claude Code only)?
   - Recommendation: no. Durable project knowledge belongs in `brain/` (provider-agnostic, reviewable); the migration reference folds it there.
 - **Q6 — `plan` mode and `create-spec`.** Should `plan` also keep the spec gate (verifier on `SPEC.md`)?
   - The user's definition moves review "only to the plan", so this spec says no; confirm before implementing.
-- **Q7 — `FLOW.md` as a map.** Should `FLOW.md` v2 stop being part of the acceptance contract, with `SPEC.md` criteria as the only contract (§7.5)?
-  - Recommendation: yes. It changes `adversarial-verifier`, `adversarial-review` and the §6.2 parity port, and it is what stops a long `FLOW.md` from becoming scope.
-- **Q8 — The `rethink` verdict.** May `ux-advisor` send the user back to another prototype round?
-  - Recommendation: yes, as advice. The user decides, and proceeding records the risk in the spec. The alternative is an agent that may only annotate an approved design, which is the old failure.
+- **Q7 — `FLOW.md` as a map. Resolved 2026-10-05: yes.** `SPEC.md` criteria are the only acceptance contract (§7.5). This changes `adversarial-verifier`, `adversarial-review` and the §6.2 parity port.
+- **Q8 — Can the review reopen the approved prototype? Resolved 2026-10-05: yes, through small changes on the prototype, iterated on.**
+  - The verdict is `iterate`, not a new divergent round: at most 3 small changes per round and at most 2 rounds.
+  - The `prototype` orchestrator applies them and `ux-advisor` re-reviews (§7.2).
 - **Q9 — The calibration page.** Use `brain/chore/ux-review.md` as a fixed convention, as `motion.md` is, or a `paths.*` key in the config?
   - Recommendation: the convention. No project has this page yet, so there is no existing location to honor.
 
 ## Risks
+
+- **The iterate loop drags on, or grows into a redesign.** Mitigation: at most 3 changes per round and 2 rounds. Each change is tied to a P0/P1 finding and must keep the winner's direction. The user accepts each change, and anything bigger becomes a spec decision.
 
 - **No browser in some tools.** Codex or Cursor installs without `agent-browser`, or a dev route that does not serve. Mitigation: degraded mode (§7.3.9) is explicit, short and honest, and it is still better grounded than the old text-only pass because it reads the components.
 - **A slower prototype hand-off.** The browser pass adds minutes. Mitigation: it runs once per spec, at the one moment a rendered UI exists, and it replaces three automatic text-only passes.

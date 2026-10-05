@@ -147,8 +147,8 @@ Each rule cites the evidence that forces it (A = internal pattern, B = external 
 | # | Rule | Evidence |
 |---|---|---|
 | 1 | Run on a **rendered, approved** UI, never on a spec draft. Without a browser, print a DEGRADED banner and report only code-grounded findings and questions | A2, B1, B3, B9 |
-| 2 | Know the moment: what exists, what does not, who reads the output next. The approval sets a direction, not a frozen decision: the agent may return `rethink` when the core interaction fails a primary task | A1, B6 |
-| 3 | Tools do the mechanical part (axe, viewport, themes, reduced motion, offline, mocked states). Their results go in one bundled fix list, not prose. The model spends its effort on what tools cannot see | B4, B9 |
+| 2 | Know the moment: what exists, what does not, who reads the output next. The approval sets a direction, not a frozen decision: the agent may return `iterate` with at most 3 small prototype changes, which the orchestrator applies before the spec is written (maintainer decision, Q8) | A1, B6 |
+| 3 | Tools do the mechanical part (screenshots it then inspects, axe, viewport, themes, reduced motion, offline, mocked states). Their results go in one bundled fix list, not prose. The model spends its effort on what tools cannot see | B4, B9 |
 | 4 | A scripted keyboard walkthrough of each primary task, with dialogs and menus checked against the WAI-ARIA APG patterns; read the source of the components the winner uses, headless primitives included | A2, A5, B4 |
 | 5 | Force each user-observable state instead of imagining it; a state matrix (present / missing / not reachable). Engineering edge cases (concurrency, retries, caching) are out of scope | A3, B3 |
 | 6 | Personas as constraint sets turned into concrete situations, walked with the four cognitive-walkthrough questions and full path history; report only where situations differ, plus hand-offs between personas. No role-play | A keeper 5, B5 |
