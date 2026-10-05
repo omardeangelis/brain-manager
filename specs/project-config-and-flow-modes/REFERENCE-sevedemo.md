@@ -4,6 +4,7 @@ type: reference
 links:
   - "[[specs/project-config-and-flow-modes/SPEC]]"
   - "[[specs/project-config-and-flow-modes/PLAN]]"
+  - "[[specs/project-config-and-flow-modes/RESEARCH-ux-advisor]]"
 created: 2026-10-05
 updated: 2026-10-05
 ---
@@ -109,6 +110,7 @@ The project copies differ from **0.5.0 in exactly the same way**: between 0.5.0 
    - No brain page holds them.
    - `ux-advisor` reads personas from `brain/domains/`, finds none, and falls back to generic axes.
    - → **personas detection** (SPEC §1).
+   - Whether that agent's output helped at all is a separate question, answered in [RESEARCH-ux-advisor.md](RESEARCH-ux-advisor.md) → SPEC §7.
 7. **Root `AGENTS.md`.**
    - Every shipped agent reads the project's gates, conventions and risk surface from the root `AGENTS.md`. The project has only `CLAUDE.md`, which holds all of that, including Solid reactivity rules, the CI gate order, the `staging` PR base and `src/api/client.ts` as a critical path.
    - Without the router, the shipped agents run blind; the project copies hardcode those facts instead.

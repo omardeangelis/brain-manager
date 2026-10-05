@@ -4,20 +4,33 @@ type: plan
 links:
   - "[[specs/project-config-and-flow-modes/SPEC]]"
   - "[[specs/project-config-and-flow-modes/REFERENCE-sevedemo]]"
+  - "[[specs/project-config-and-flow-modes/RESEARCH-ux-advisor]]"
 created: 2026-10-05
 updated: 2026-10-05
 ---
 
-# Plan: project-aware install, review modes, prototype-gated UX, router detection
+# Plan: project-aware install, review modes, prototype-gated UX review, router detection
 
 **Status:** Planned — not started. Written to be executed in a separate session.
 **Branch:** `feat/project-config-and-flow-modes` (this plan is its first commit).
-**Spec:** [SPEC.md](SPEC.md) · **Evidence:** [REFERENCE-sevedemo.md](REFERENCE-sevedemo.md)
+**Spec:** [SPEC.md](SPEC.md) · **Evidence:** [REFERENCE-sevedemo.md](REFERENCE-sevedemo.md), [RESEARCH-ux-advisor.md](RESEARCH-ux-advisor.md)
 
 ## Before you start
 
-1. **Read the docs:** [SPEC.md](SPEC.md) (the contract), [REFERENCE-sevedemo.md](REFERENCE-sevedemo.md) (why), `test/EVAL.md` (the release bar) and `README.md` § "How upgrades stay safe".
-2. **Resolve the open questions SPEC Q1–Q6 with the maintainer first.** The plan follows each recommendation; a different answer changes T11 (Q1, Q3), T9 (Q2), T6 (Q4), T14 (Q5) and T8 (Q6).
+1. **Read the docs:**
+   - [SPEC.md](SPEC.md): the contract;
+   - [REFERENCE-sevedemo.md](REFERENCE-sevedemo.md): why;
+   - [RESEARCH-ux-advisor.md](RESEARCH-ux-advisor.md): why the UX agent is redesigned, and the benchmark that accepts it;
+   - `test/EVAL.md`: the release bar;
+   - `README.md` § "How upgrades stay safe".
+2. **Resolve the open questions SPEC Q1–Q9 with the maintainer first.** The plan follows each recommendation. A different answer changes:
+   - Q1 → T11;
+   - Q2 → T9;
+   - Q3, Q8, Q9 → T11b;
+   - Q4 → T6;
+   - Q5 → T14;
+   - Q6 → T8;
+   - Q7 → T11b and T12.
 3. **Keep the repo conventions.**
    - Pure logic lives in `src/core/*` with a co-located `*.test.ts`.
    - Filesystem effects live in `src/services/*` / `src/commands/*`.
@@ -39,9 +52,9 @@ updated: 2026-10-05
 ```
 Wave 1 (core, parallel) ── T1 config ── T2 router analysis ── T3 detection
 Wave 2 (CLI)            ── T4 scan (T2,T3) ── T5 init/upgrade/doctor/config (T1,T3) ── T6 link router states (T2)
-Wave 3 (assets, SEQUENTIAL — same files) ── T7 → T8 → T9 → T10 → T11 → T12 → T13
+Wave 3 (assets, SEQUENTIAL — same files) ── T7 → T8 → T9 → T10 → T11 → T11b → T12 → T13
 Wave 4 (orchestrator + docs) ── T14 init-brain (T4,T5,T6,T7–T13) ── T15 README/EVAL/version
-Wave 5 (validation) ── T16 reference-project dry run (all)
+Wave 5 (validation) ── T16 reference-project dry run (all) ── T17 UX replay benchmark (T11b; reuses T16's worktree technique)
 ```
 
 Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement-spec` are touched by four of them), so run them one after another, in order.
@@ -251,29 +264,78 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
 ### T11 — UX review only after an approved prototype
 - **depends_on:** T7, T10
 - **location:**
-  - **ux-advisor:** `assets/agents/ux-advisor.md`
   - **prototype:** `assets/skills/prototype/SKILL.md` (Phase 6, "In a brain project", the `keep <variant>` row)
-  - **create-spec:** `SKILL.md` (steps 8–9, Workflow 6, Project Advisors intro), `references/brain-bookkeeping.md`, `references/handoff.md`
+  - **create-spec:** `SKILL.md` (steps 8–9, Workflow 6, Project Advisors intro), `references/brain-bookkeeping.md`, `references/handoff.md`, `references/flow-map.md` (new)
   - **create-plan:** `SKILL.md` (step 9, Workflow 4, Project Advisors intro)
   - **implement-spec:** `SKILL.md` (Required Advisor Agents, Project Advisors intro), `references/lifecycle.md` §6
   - **docs-maintenance:** `references/flow-pages.md`
   - **design-engineer:** `assets/agents/design-engineer.md` (lines 34 and 99)
   - **description strings:** the `ux-advisor` mentions in the `assets/brain/*` advisor list
-- **description:** Per SPEC §4.
-  - **ux-advisor:**
-    - The new primary mode is *Prototype review*: the brief, the three findings, and the `FLOW.md` draft with `## Accessibility` and `## Persona dependencies`.
-    - Rewrite "How you serve each skill": `prototype` (trigger), `create-spec` (consumer of the handoff), and the others only as `FLOW.md` readers.
-    - Update the description and examples.
-  - **prototype Phase 6:** after the user approves a winner, and only then, spawn `ux-advisor` and pass its result into `create-spec`. If the run stops early, persist `UX-REVIEW.md` next to the surviving variant (Q1).
+- **description:** Per SPEC §4. This task moves the trigger; the agent itself is rewritten in T11b.
+  - **prototype Phase 6:**
+    - After the user approves a winner, and only then, spawn `ux-advisor`. Brief it with the five inputs of SPEC §4, including the dev-route URL and the list of what the prototype fakes.
+    - Relay the verdict to the user. On `rethink`, offer another Phase 3 round around the winner, or proceeding with the risk recorded (Q8).
+    - Otherwise pass the review into `create-spec`. If the run stops early, persist the review as `UX-REVIEW.md` next to the surviving variant (Q1).
   - **create-spec:**
     - Delete the auto `ux-advisor` step.
-    - Add the prototype-handoff input: write `FLOW.md`, fold the findings in.
+    - Add the prototype-handoff input per SPEC §4: decisions → acceptance criteria, mechanical fixes → one criterion, open questions with their defaults.
+    - Write `FLOW.md` v2 from a new `references/flow-map.md`, which holds the template moved out of the agent (SPEC §7.5).
+    - When the user rejects a finding, offer to append it to `brain/chore/ux-review.md` under "Suppressed findings" (SPEC §7.6).
     - Add the one-line "no UX review ran — consider `/prototype`" note for user-facing specs without a prototype.
   - **create-plan / implement-spec:** delete the `ux-advisor` invocations. Keep reading `FLOW.md`.
   - **design-engineer:** "after any `ux-advisor` pass" becomes "reading `FLOW.md` when present". Persona questions become an open question when no `FLOW.md` exists.
 - **validation:**
   - `grep -rn "ux-advisor" assets` → triggers only in `prototype`.
   - Every other hit is descriptive: the Brain Schema list and FLOW provenance.
+- **review_mode:** docs
+
+### T11b — `ux-advisor` redesign: role, moment, method
+- **depends_on:** T10, T11
+- **location:**
+  - **the agent:** `assets/agents/ux-advisor.md`, a full rewrite
+  - **the contract change (Q7):**
+    - `assets/agents/adversarial-verifier.md`, lines 54 and 105 (the `FLOW.md` paths as contract);
+    - `assets/skills/adversarial-review/SKILL.md`, step 3 (the "acceptance contract" sentence);
+    - `assets/skills/adversarial-review/references/verification-phase.md`, if it repeats it
+  - **the Brain Schema:** `assets/brain/AGENTS.md` and `assets/brain/CLAUDE.md`:
+    - the `ux-advisor` line in the advisor list;
+    - the `FLOW.md` row in the directory conventions;
+    - `brain/chore/ux-review.md` in the `chore/` conventions
+- **description:** Per SPEC §7. Read [RESEARCH-ux-advisor.md](RESEARCH-ux-advisor.md) parts A–C first; every rule there names its evidence.
+  - **Frontmatter:**
+    - a description centered on the reviewer role and the prototype moment, with two examples: a prototype review and an explicit live-surface review;
+    - `tools: Read, Grep, Glob, Bash`;
+    - `model: inherit`;
+    - no `memory:`.
+  - **Body, in this order:**
+    1. Role, plus the "does not own" table (§7.1).
+    2. Moment table and verdicts, including when to decline (§7.2).
+    3. Read the project: the config, `<personas>`, the domain page, the router, `brain/chore/ux-review.md`, and the component sources (§7.3, step 1).
+    4. Method steps 2–9, with the `agent-browser` commands spelled out:
+       - `snapshot -i`;
+       - `press`;
+       - `set viewport` / `set device`;
+       - `set media … reduced-motion`;
+       - `set offline`;
+       - `network route --body|--abort`;
+       - `a11y`, or axe through `eval`.
+    5. Output contract (§7.4).
+    6. Calibration: one kept and one rejected finding, generic, with no reference-project names (§7.6).
+    7. Self-verification:
+       - every finding passes the evidence gate;
+       - the caps are respected;
+       - no runtime claim without a trace;
+       - the degraded banner is present when needed.
+  - **Keep from today's agent:** the YAGNI/friction stance, the analytics/PII boundary, and "defer to the project's design system". Move the `FLOW.md` template out to `create-spec/references/flow-map.md` (T11).
+  - **Verifier contract:** every `SPEC.md` acceptance criterion must be met, else at least MAJOR. `FLOW.md` is read to locate states. A `FLOW.md` row with no AC is not a finding.
+  - **agent-browser:** check whether the bundled skill text documents `a11y`. If upstream has it and the bundled text does not, note it in the agent ("if `agent-browser a11y` is unavailable, inject axe-core with `eval`"). Refreshing the bundled skill is a separate change, not part of this task.
+- **validation:**
+  - `head -8 assets/agents/ux-advisor.md` shows the four tools and no `Write`, `Edit` or `memory:`.
+  - The agent has the §7.4 headings, the moment table, the three verdicts and the DEGRADED rule.
+  - `grep -n "FLOW.md" assets/agents/ux-advisor.md` shows no authoring instructions.
+  - `grep -n "error/edge path" assets/agents/adversarial-verifier.md` → no hits.
+  - The body stays within about 220 lines.
+  - The no-foreign-tokens grep is clean.
 - **review_mode:** docs
 
 ### T12 — Review ingest and FLOW parity (port from the reference project)
@@ -286,6 +348,9 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
   - **Port, then generalize.** The source text is in REFERENCE B3 and B4: the reference project's `.claude/skills/docs-maintenance/` and the sibling skills on its `staging` branch.
     - Replace project names and paths with tokens.
     - `review-ingest.md` resolves `REPORT.md` by `review.location`.
+  - **FLOW parity targets v2.** Port the reference project's FLOW reading, but:
+    - read v2 sections first and still accept v1 (Error paths / Edge cases);
+    - aim the `lifecycle.md` acceptance-audit check at the `SPEC.md` criteria that `FLOW.md` cites, not at every FLOW row (Q7).
   - **docs-maintenance Step 2:** read `FLOW.md` (primary flow source) and the sibling `REPORT.md` when `ingested: false`.
   - **docs-maintenance Step 7:** process that report. **Step 8:** add the log line.
   - **Secondary section:** standalone ingest of case-A reports.
@@ -327,7 +392,10 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
     - twins are offered for replacement, not wired as additional advisors;
     - their project facts route to `project-context.md` / `router.md` first;
     - the per-skill wiring list loses `ux/design → create-spec / create-plan / implement-spec`: UX now lives in `prototype` only.
-  - **migration.md:** fold agent memories into brain pages (SPEC §6.5); list docs that mention legacy agent names.
+  - **migration.md:**
+    - fold agent memories into brain pages (SPEC §6.5);
+    - a legacy UX agent's component-mechanics memories become the "Component traps" part of `brain/chore/ux-review.md`, shown to the user first;
+    - list the docs that mention legacy agent names.
   - **onboard:** check that the inlining picks up the two new references (it inlines `references/*` mentioned by the playbook).
 - **validation:**
   - `brain onboard` output contains `project-context.md` and `router.md`.
@@ -341,15 +409,22 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
   - **README:**
     - "What ends up in a project": `brain/brain.config.json`, `brain/personas.md` (when extracted);
     - a new "Project configuration" section: keys, `brain config`, review modes table;
-    - an updated UX flow (prototype → ux-advisor → create-spec);
+    - an updated UX flow (prototype → ux-advisor reviews the winner in the browser → create-spec);
+    - the agent's role, moments and verdicts;
+    - `FLOW.md` v2 as a map;
+    - the optional `brain/chore/ux-review.md`;
     - router behavior (identical → linked; divergent → reconcile; `--force` never discards);
-    - a release note on the moved UX trigger.
+    - a release note covering the moved UX trigger, the redesigned agent, the verifier contract change, and that `FLOW.md` v1 files are still read.
   - **EVAL rows:**
     - config lifecycle [auto];
     - scan project context [auto];
     - router identical / divergent [auto];
     - review modes × 3 [man] — run `create-spec` → `create-plan` → `implement-spec` on a toy spec and confirm which gates fire;
-    - prototype → ux-advisor → create-spec handoff [man];
+    - prototype → ux-advisor → create-spec handoff [man]: the verdict is relayed; decisions become AC; `FLOW.md` v2 cites the AC ids;
+    - ux-advisor evidence and caps [man]: every finding has a location and evidence; at most 6 decisions and 3 open questions;
+    - ux-advisor degraded mode [man]: with no browser, the banner appears and there are no runtime claims;
+    - ux-advisor declines on a spec draft with no rendered UI [man];
+    - UX replay benchmark [man] (T17);
     - review ingest [man];
     - reference-project dry run [man] (T16).
 - **validation:** `npm run build` clean; `npm test` green.
@@ -385,6 +460,34 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
   - **Remove the worktree** afterwards.
 - **review_mode:** mixed (CLI + manual read of the playbook output)
 
+### T17 — UX replay benchmark (accepts T11b)
+- **depends_on:** T11, T11b (T12 for the v2 readers if the run continues into `create-spec`)
+- **location:** a throwaway worktree of the reference project per case, never its working branch. The cases and commits are in [RESEARCH-ux-advisor.md](RESEARCH-ux-advisor.md) part D.
+
+  ```bash
+  git -C <sevedemo> worktree add /tmp/ux-bench-<case> <prototype-commit>
+  ```
+- **description:**
+  1. **Ground truth first, blind to the agent.** For each case, list the defects observable on the prototype from that spec's review `REPORT.md`, its tech-debt page and the later fix commits. RESEARCH part A names several, for example the inert live region, the checkbox double toggle and the dialog jump. Drop backend-only and implementation-only items. Freeze the list in the log before any run.
+  2. **Serve the prototype route** (`/prototypes/<slug>`). The prototypes run on fixtures. If a route still needs the backend, use the reference project's local-run notes or mock the calls with `agent-browser network route`.
+  3. **Brief the redesigned `ux-advisor`** exactly as `prototype` Phase 6 would, with the five SPEC §4 inputs. Record its review verbatim.
+  4. **Score it against the old `FLOW.md`** for the same spec. Metrics and thresholds are in RESEARCH part D:
+     - recall on the ground truth;
+     - share of valid findings, judged by the maintainer;
+     - adopted P0/P1 decisions;
+     - defaults and AC on every decision;
+     - length and open questions;
+     - runtime claims without evidence.
+  5. **On a miss,** change the agent (calibration examples first, then the method wording) and re-run every case. Never change the thresholds.
+  6. **Remove the worktrees.**
+- **validation:**
+  - SPEC AC 13 holds.
+  - The log carries:
+    - the frozen ground truth per case;
+    - one results row per case and iteration;
+    - the final agent diff summary.
+- **review_mode:** manual (browser + maintainer judgement)
+
 ## Validation gates (before opening the PR)
 
 1. `npm run build` — no TS errors.
@@ -392,11 +495,13 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
 3. Asset greps:
    - T9: no literal tech-debt or review paths;
    - T11: `ux-advisor` triggers only in `prototype`;
+   - T11b: `ux-advisor` tools and headings; no `FLOW.md` error/edge paths as contract in `adversarial-verifier`;
    - T13: router fallback everywhere;
    - no reference-project tokens in `assets/`.
 4. `assets/brain/AGENTS.md` ≡ `assets/brain/CLAUDE.md`.
 5. T16 dry-run log recorded, with AC 11 met.
-6. EVAL manual rows run for the three review modes and the prototype handoff.
+6. T17 benchmark log recorded, with AC 13 met.
+7. EVAL manual rows run for the three review modes, the prototype handoff and the `ux-advisor` rows.
 
 ## Risks and how this plan handles them
 
@@ -407,6 +512,9 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
 | Detection proposes something wrong | The CLI only suggests, with reasons. init-brain confirms with the user before writing config or extracting personas. |
 | Existing installs change behavior on upgrade | No config means `total` + 0.6.0 paths (identical behavior), except the UX trigger move, which is announced in the README and the release note. |
 | Porting text from the reference project leaks its specifics | T12 generalizes to tokens. Gate 3 greps for its names. |
+| The redesigned agent reads well but performs no better | T17 accepts it only against the old agent's real output, on defects that actually shipped, with thresholds frozen before the run. |
+| The benchmark leaks into the prompt (overfitting to three cases) | Calibration examples in the shipped agent stay generic (no reference-project names, no case-specific traps). Project-specific traps belong in the project's `brain/chore/ux-review.md`. |
+| `agent-browser` lacks `a11y` in the installed version | The agent falls back to axe through `eval`, then to listing the automated checks as not run. Degraded mode is never silent. |
 
 ## Log
 

@@ -5,6 +5,8 @@ status: draft
 links:
   - "[[specs/project-config-and-flow-modes/PLAN]]"
   - "[[specs/project-config-and-flow-modes/REFERENCE-sevedemo]]"
+  - "[[specs/project-config-and-flow-modes/RESEARCH-ux-advisor]]"
+  - "[[assets/agents/ux-advisor.md]]"
   - "[[src/core/link-plan.ts]]"
   - "[[src/commands/scan.ts]]"
   - "[[src/commands/init.ts]]"
@@ -13,11 +15,13 @@ created: 2026-10-05
 updated: 2026-10-05
 ---
 
-# Project-aware install: config, review modes, prototype-gated UX, router detection
+# Project-aware install: config, review modes, prototype-gated UX review, router detection
 
 Make the suite fit a project that already has its own conventions **without editing the installed skills**. The installer detects what the project already has: personas, tech-debt store, review history, a root `AGENTS.md`. It records the result in one project-owned config file and lets the user choose how much adversarial review the flows enforce. The skills and agents read that config at runtime, so every project runs the same bundled files and `brain upgrade` stays conflict-free.
 
-Evidence: [REFERENCE-sevedemo.md](REFERENCE-sevedemo.md), a real project that ran the brain workflow for four months and diverged from the package in exactly these places.
+Evidence:
+- [REFERENCE-sevedemo.md](REFERENCE-sevedemo.md): a real project that ran the brain workflow for four months and diverged from the package in exactly these places.
+- [RESEARCH-ux-advisor.md](RESEARCH-ux-advisor.md): why the UX agent's output did not improve that project, and what the evidence says works instead.
 
 ## Problem
 
@@ -26,7 +30,7 @@ Today the only sanctioned way to fit the suite to a project is to edit the insta
 - **Personas** are hardcoded inside a project agent. `ux-advisor` looks for them in `brain/domains/` and falls back to generic ones.
 - **Tech-debt and review paths** are fixed strings in the skills. A project whose store lives elsewhere has to patch every skill, and `docs-maintenance` cannot ingest review reports at all (REFERENCE B3).
 - **Review policy** is fixed. 0.6.0 makes `adversarial-review` mandatory in `implement-spec`; the reference project deliberately made it opt-in, and the only way to keep that is to fork three skills.
-- **UX review** runs on every user-facing spec (`create-spec` step 8), plan (`create-plan` step 9) and task (`implement-spec`). That is heavy, and it critiques flows nobody has seen yet. The right moment is when there is a concrete, approved UI to critique: a prototype winner.
+- **UX review** runs on every user-facing spec (`create-spec` step 8), plan (`create-plan` step 9) and task (`implement-spec`). That is heavy, and it critiques flows nobody has seen yet. The right moment is when there is a concrete, approved UI to critique: a prototype winner. And moving the trigger is not enough: in the reference project the agent's output, though specific, did not change the product (RESEARCH part A).
 - **The root router** is half handled. `link` promotes a lone `CLAUDE.md` into `AGENTS.md`. When both exist with different content it only reports a conflict, and `--force` replaces `CLAUDE.md` with a symlink, discarding its content. Nothing evaluates whether an existing `AGENTS.md` actually carries what the flows need: gates, a pointer to `brain/`, a review policy.
 
 ## Goal
@@ -34,6 +38,7 @@ Today the only sanctioned way to fit the suite to a project is to edit the insta
 1. One project-owned config, `brain/brain.config.json`, written by `init`, migrated by `upgrade`, validated by `doctor`, and editable with `brain config`.
 2. Every suite skill and shipped agent reads that config and the files it points to, instead of hardcoded values.
 3. On a reference-like project, an install leaves every suite file byte-identical to the package (REFERENCE "What standardization means").
+4. `ux-advisor` reviews the approved prototype in the browser and returns a few ranked decisions backed by evidence (§7). It beats the old agent on a replay of the reference project's own history (§7.7).
 
 ## Principle: one copy, project facts outside it
 
@@ -102,7 +107,7 @@ Each line carries the path, the matched heading and `kind: file | section`.
 
 **Consumers:**
 
-- **`ux-advisor`** reads `paths.personas` first and uses those personas verbatim. Generic axes are the fallback only when the path is `null`.
+- **`ux-advisor`** reads `paths.personas` first. It takes the segments verbatim and derives concrete situations from them (§7.3, step 5). Generic axes are the fallback only when the path is `null`.
 - **`create-spec`** names the target persona(s) from the same source.
 - **`prototype`** Phase 1 scopes "for whom" from it.
 - The **Brain Schema** documents `type: personas`.
@@ -150,24 +155,19 @@ prototype  ──(user approves a winner: `keep <variant>` / Phase 6)──▶  
 
 **`ux-advisor` runs only here.** Its new primary mode, *prototype review*, is briefed self-contained with:
 
-- the winning variant (path and route);
+- the winning variant: path, and the URL of its dev route;
 - the scope from Phase 1;
 - `paths.personas`;
-- the winner's motion line and values.
+- the winner's motion line and values;
+- the list of what the prototype fakes (endpoints, data, permissions), as Phase 6 already compiles it.
 
-It returns three findings and a `FLOW.md` draft:
+It reviews the winner **in the browser** and returns a UX review with three findings, as the user asked. Their method, evidence bar and output contract are in §7:
 
-1. **Accessibility issues** of the winner, ranked by severity:
-   - keyboard and focus order;
-   - semantics, roles and labels;
-   - contrast in every theme the project ships;
-   - target sizes;
-   - announcements for async states;
-   - reduced-motion behavior, deferring exact motion values to `design-engineering/references/accessibility.md`.
-2. **Uncovered flows.** What the prototype faked or never showed: error paths, empty and partial data, permissions, latency and async failure, deep links, concurrency.
-3. **Persona dependencies.** Which personas the flow serves, what each needs, cross-persona conflicts, and dependencies on other flows, features or data.
+1. **Accessibility issues.** Keyboard and focus, semantics and names, contrast in every shipped theme, target sizes, announcements for async states, reduced motion (exact motion values stay with `design-engineering/references/accessibility.md`).
+2. **Uncovered flows.** The user-observable states, entry points and exits the prototype faked or never showed.
+3. **Persona dependencies.** Where the flow works differently for different persona situations, cross-persona conflicts, and dependencies on other flows, features or data.
 
-`FLOW.md` gains two sections, `## Accessibility` and `## Persona dependencies`. The existing sections and their order are unchanged, so current consumers keep working.
+`create-spec` turns the review into acceptance criteria and writes `FLOW.md` in its v2 shape: a map that cites acceptance-criterion ids (§7.5).
 
 **Removed triggers.** `ux-advisor` is no longer spawned by:
 
@@ -180,14 +180,14 @@ The agent stays directly invocable on explicit request.
 
 **`create-spec` gains a prototype-handoff input.** When started from an approved prototype with a `ux-advisor` result:
 
-- it writes `FLOW.md` into the spec folder it resolves;
-- it turns accessibility findings into acceptance criteria or open questions;
-- it records persona dependencies in the spec;
+- it turns each decision into an acceptance criterion, and the bundled mechanical fixes into one criterion;
+- it carries the open questions, each with its recommended default, into the spec;
+- it writes `FLOW.md` v2 into the spec folder it resolves (§7.5);
 - it cites the prototype by path and route, as today.
 
 **Specs without a prototype get no `FLOW.md`.** This is accepted. Every consumer already treats `FLOW.md` as optional. When a spec is user-facing and no prototype ran, `create-spec` says so in one line and suggests `/prototype`, never invoking it.
 
-**Unchanged downstream.** `create-plan`, `implement-spec`, the verifier and `docs-maintenance` keep consuming `FLOW.md` when present (with the §6 parity fixes).
+**Downstream.** `create-plan`, `implement-spec` and `docs-maintenance` keep consuming `FLOW.md` when present. They read the v2 sections and still accept v1 files, with the §6 parity fixes. The verifier changes its contract per §7.5: it judges the `SPEC.md` criteria and uses `FLOW.md` only to locate them.
 
 `design-engineer` keeps deferring persona and journey questions. When no `ux-advisor` output exists, it flags them as an open question instead of routing to an agent that will not run.
 
@@ -240,7 +240,7 @@ These come from the reference report; the user asked for full standardization. E
    - Without this, no report reaches tech-debt on 0.6.0.
 2. **`FLOW.md` parity (B4).** Port:
    - `planner-phase.md` "Spec-folder inputs";
-   - the `lifecycle.md` reading order and acceptance-audit check;
+   - the `lifecycle.md` reading order and acceptance-audit check, re-aimed at the `SPEC.md` criteria that `FLOW.md` v2 cites (§7.5), not at every FLOW row;
    - the FLOW slice in `parallel-worker-brief.md`;
    - `docs-maintenance` Step 2/3 using `FLOW.md` as the primary flow source.
 3. **Review location (B2).**
@@ -251,11 +251,157 @@ These come from the reference report; the user asked for full standardization. E
    - offers to replace it with the shipped agent;
    - lists the docs that mention the old name, for the user to update;
    - routes its project-specific content (personas, risk surfaces) to §1 and §5 first.
-5. **Agent memory (B5).** The migration reference explains how to fold durable memories into brain pages: personas → `brain/personas.md`, risk surfaces and conventions → `AGENTS.md`, motion → `brain/chore/motion.md`. Whether shipped agents should declare `memory:` is Q5.
+5. **Agent memory (B5).** The migration reference explains how to fold durable memories into brain pages: personas → `brain/personas.md`, risk surfaces and conventions → `AGENTS.md`, motion → `brain/chore/motion.md`, component traps and rejected UX findings → `brain/chore/ux-review.md` (§7.6). Whether shipped agents should declare `memory:` is Q5.
+
+## 7. `ux-advisor` redesign: role, moment, method
+
+Moving the trigger (§4) is not enough. The agent's twin ran for four months in the reference project and its output did not move the product. [RESEARCH-ux-advisor.md](RESEARCH-ux-advisor.md) shows why:
+
+- **The moment was wrong.** It was briefed after the decisions and told not to reopen them.
+- **It looked at nothing rendered.** It never saw the UI or the real components.
+- **Its length turned into scope.** The verifier treats every `FLOW.md` row as part of the contract.
+- **It asked questions instead of choosing.**
+
+External studies agree: ungrounded LLM critique has low precision, and structured runtime evidence is what lifts it. This section redesigns the agent around those facts. RESEARCH part C maps each rule below to its evidence.
+
+### 7.1 Role
+
+> `ux-advisor` reviews an approved, rendered UI for the people who will use it, and returns the decisions the spec must make, each backed by evidence it observed.
+
+It is a reviewer, not a flow author or a spec writer. It answers four questions:
+
+1. **Can everyone operate it?** Accessibility.
+2. **What did the prototype not show?** User-observable states, entry points and exits.
+3. **Who does it fail?** Persona situations, cross-persona conflicts and dependencies.
+4. **What is already broken around it?** The current code the winner will replace or sit next to. This kept the most value in the old output (RESEARCH A, keeper 1).
+
+It does **not** own:
+
+| Concern | Owner |
+|---|---|
+| Motion values | `design-engineer` / `design-engineering` |
+| Visual language, brand | the project's design skill, if any |
+| Engineering edge cases: concurrency, retries, caching, data consistency | `create-spec` (grill), `create-plan` (planner), the verifier |
+| Writing `SPEC.md` / `FLOW.md` | the orchestrator (`create-spec`) |
+
+### 7.2 Moment awareness
+
+The agent opens by naming its moment from the brief, and behaves accordingly:
+
+| Moment | Who calls it | What exists | What does not exist yet | Output goes to |
+|---|---|---|---|---|
+| **Prototype review** (primary) | `prototype` Phase 6, after the user picks a winner | the winner at its dev route; Phase 1 scope; motion line; what the prototype fakes; personas; domain docs | `SPEC.md`, backend contract, real data | `create-spec`, same run; the verdict goes to the user |
+| **Live-surface review** (explicit only) | the user, naming a shipped route ("this flow is clunky") | the running route and its code | a winner, a spec | the user, with a suggestion to run `/prototype` or `create-spec` |
+| **Anything else** (a spec draft, an idea, no rendered UI) | — | text only | — | one line naming the moment that fits; no review, no `FLOW.md` |
+
+**The approval sets a direction, not a frozen decision.** The old agent was told not to reopen decisions, and doubled down on choices the owner later reverted on screen (RESEARCH A1). Now, if a finding shows the core interaction failing a persona's primary task, the verdict is `rethink` and names the failing step. The user chooses: another prototype round (Phase 3, diverging around the winner) or proceeding with the risk recorded in the spec.
+
+Verdicts: `proceed` | `proceed with decisions` | `rethink`.
+
+### 7.3 Method
+
+1. **Orient,** briefly:
+   - the config, then `<personas>`;
+   - the touched domain's page;
+   - the root router for accessibility and i18n conventions;
+   - `brain/chore/ux-review.md` when present (§7.6);
+   - the source of every component the winner uses, including the headless library's primitives (keyboard delegates, focus scopes, portals). That layer is where the reference project's shipped defects came from (RESEARCH A2).
+2. **Mechanical pass with tools** (`agent-browser`):
+   - **Viewports:** 375 and 1280, plus 320 for reflow.
+   - **Themes and motion:** every shipped theme, and reduced motion.
+   - **axe:** `agent-browser a11y` when the CLI has it, else axe-core injected with `eval`. Violations become **one bundled list of mechanical fixes**, not prose. Its `incomplete` items go to manual checks.
+3. **Keyboard walkthrough of each primary task:**
+   - Tab and Shift+Tab, logging role, name and visible focus at each step.
+   - Dialogs and menus checked against the WAI-ARIA APG patterns: focus moves in, Tab wraps, Escape closes, focus returns to the trigger.
+   - Live regions update after async actions.
+   - Screen-reader announcements are listed as **manual checks**, never claimed.
+4. **State matrix, by forcing states:**
+   - For each data-bound region, drive empty, loading, error, partial, long content, no permission and offline. Use `network route --body` / `--abort` and `set offline`.
+   - Each cell reads present / missing / not reachable in the prototype.
+   - A missing cell becomes a decision. Only user-observable states belong here.
+5. **Persona situations:**
+   - From `<personas>`, derive 2–4 concrete situations: segment × entry point × permissions × device × data volume × prior knowledge.
+   - Walk the primary task in each, with the four cognitive-walkthrough questions, keeping the full path.
+   - Report only where situations differ, plus hand-offs where one persona's action creates a state another must see.
+   - No role-play: simulated users are too competent (RESEARCH B5).
+6. **Around the surface.** What is already broken in the code the winner replaces or sits next to:
+   - dead links;
+   - silent data loss;
+   - existing controls that strand users;
+   - data assumptions the real records contradict.
+7. **Evidence gate.**
+   - Every finding carries a location (route plus accessibility-tree ref or selector, or `file:line`), the observed evidence (trace step, axe rule, matrix cell, code line) and repro steps.
+   - No evidence → open question, never a finding.
+8. **Decide, rank, cap.**
+   - At most **6 product decisions**, P0–P2, each with a one-line reason (frequency × impact). Repeats merge into one with a list of locations.
+   - Each decision reads: decision needed → recommended default → acceptance criterion → evidence.
+   - At most **3 open questions**, only for facts it cannot observe (business, data, legal), each with a default.
+   - "No blocking issues" is a valid result. No heuristic health scores.
+9. **Degraded mode.** With no browser available (a tool without `agent-browser`, a route that does not serve), the review opens with a `DEGRADED` banner. It reports only code-grounded findings and questions, and never claims runtime behavior.
+
+### 7.4 Output contract
+
+The agent **returns** the review to its caller; it writes no files. About 120 lines at most:
+
+```markdown
+## Verdict: proceed | proceed with decisions | rethink — <one line>
+## Decisions            (≤ 6, ranked)  | # | P | Decision needed | Recommended default | Acceptance criterion | Evidence |
+## Mechanical fixes     (axe + keyboard, bundled; one line each with location)
+## State matrix         | Region | empty | loading | error | partial | long | no permission | offline |
+## Persona situations   (only where they differ) + dependencies and hand-offs
+## Already broken around the surface
+## Where the spec will be misread   (≤ 5 rows)
+## Manual checks still needed       (screen reader, real device, with exact steps)
+## Open questions       (≤ 3, each with a default)
+```
+
+### 7.5 What the review turns into
+
+- **`SPEC.md` is the only acceptance contract.** `create-spec` folds:
+  - each decision into an acceptance criterion;
+  - the mechanical fixes into one criterion;
+  - the open questions into the spec's Open questions.
+- **`FLOW.md` v2 is a map, not a second contract.** `create-spec` writes it from the review, in at most about 150 lines, using a template that moves from the agent to `create-spec/references/flow-map.md`. Sections:
+  - Goal
+  - Persona situations
+  - Entry points
+  - Happy path (≤ 10 steps)
+  - States (the matrix, replacing v1's Error paths and Edge cases)
+  - Accessibility
+  - Persona dependencies
+
+  Every requirement in it cites an AC id. A requirement stated only in `FLOW.md` is a defect.
+- **Readers accept both versions.** `create-plan`, `implement-spec` and `docs-maintenance` accept v1 files (Error paths / Edge cases) and v2 files.
+- **The verifier judges `SPEC.md` criteria and uses `FLOW.md` to locate them.**
+  - `adversarial-verifier`'s "every `FLOW.md` happy/error/edge path must be handled, else MAJOR" becomes "every acceptance criterion must be met, else MAJOR".
+  - A FLOW row with no AC is not a finding.
+  - This is what stops review findings from silently becoming scope (RESEARCH A3).
+
+### 7.6 Tools, model, memory, calibration
+
+- **tools:** `Read, Grep, Glob, Bash`.
+  - `Bash` only for `agent-browser` and read-only commands; never edits, never installs.
+  - `Write` / `Edit` are removed: the orchestrator writes. This flips Q3.
+- **model:** `inherit`.
+- **memory:** none (Q5).
+- **Calibration.**
+  - The agent body carries one kept finding and one rejected finding as few-shot examples, both generic, with no project names (RESEARCH B2).
+  - The project can add its own in **`brain/chore/ux-review.md`**: an optional, project-owned page beside `motion.md`, with three parts:
+    - **Component traps** of its stack, for example a library primitive that swallows keys;
+    - **Kept examples**;
+    - **Suppressed findings**, rejected ones with the reason.
+  - When the user rejects a finding, `create-spec` offers to append it there.
+- **Where the method lives.** In the agent body, as `design-engineer`'s modes do, so a tool without a subagent runtime can follow it inline. It moves to a skill only if a second consumer (for example a verifier accessibility pass) needs it.
+
+### 7.7 Acceptance of the redesign
+
+The redesign is accepted on the replay benchmark in RESEARCH part D (PLAN T17), not on reading its prompt. It uses three reference-project prototypes still in git history, with the defects found after them as ground truth, and the old `FLOW.md` as the baseline.
 
 ## Non-goals
 
 - Making the UX trigger configurable. The prototype-gated flow is the standard; the agent stays invocable by hand.
+- Simulated-user role-play, synthetic usability scores or heuristic health scores. The evidence says they add noise, not findings (RESEARCH B5, B8).
+- Screen-reader testing by the agent. It lists the manual checks; it never claims to have run one.
 - Supporting per-skill overrides or templating the skill bodies. The config holds facts and one policy knob, not skill text.
 - Rewriting project content during detection. Extraction is verbatim, and only with confirmation.
 - Native non-Claude agent formats (`specs/multi-provider-agents/`).
@@ -275,16 +421,21 @@ These come from the reference report; the user asked for full standardization. E
 8. **Review gates follow the §3 matrix in each mode.** `create-spec`, `create-plan`, `implement-spec` and `adversarial-review` state the mode condition at every gate. Verified by the manual eval rows for the three modes.
 9. **UX runs only from `prototype`.**
    - `ux-advisor` is referenced as a trigger only by `prototype` (Phase 6 / `keep`).
-   - The agent has the prototype-review mode with the three findings.
-   - `FLOW.md` carries `## Accessibility` and `## Persona dependencies`.
-   - `create-spec` consumes the handoff.
+   - `create-spec` consumes the handoff (§4) and writes `FLOW.md` v2 from `references/flow-map.md`.
 10. **Review ingest and FLOW parity.** `docs-maintenance` ingests review reports per §6.1, and the FLOW parity items of §6.2 are present.
 11. **Reference project, dry run.** On a throwaway worktree of the reference project (PLAN T16), init plus upgrade yield:
     - suite skills and shipped agents byte-identical to the package;
     - config `review.mode: none` (confirmed with the user), `review.location: review-tree`, `paths.techDebt: brain/tech-debt`, `paths.personas: brain/personas.md`;
     - `AGENTS.md` canonical with `CLAUDE.md` linked;
     - `brain doctor` exit 0.
-12. **Release hygiene.** `npm run build` and `npm test` green. EVAL.md updated. Version bumped to `0.7.0`. README documents the config, the modes and the new UX flow.
+12. **`ux-advisor` redesigned per §7.**
+    - The agent states its role and the moment table (§7.1–7.2) and the three verdicts.
+    - It follows the method of §7.3, including the evidence gate, the caps and degraded mode, and returns the output contract of §7.4.
+    - Its tools are `Read, Grep, Glob, Bash`, with no `Write` / `Edit` and no `memory:`.
+    - It carries one kept and one rejected calibration example, with no project names, and reads `brain/chore/ux-review.md` when present.
+    - `adversarial-verifier` and `adversarial-review` take `SPEC.md` criteria as the contract and `FLOW.md` as a map (§7.5).
+13. **Replay benchmark passes** (RESEARCH part D, PLAN T17). On the three reference prototypes the redesigned agent meets every pass threshold against the old `FLOW.md` baseline. The results table is recorded in the PLAN log.
+14. **Release hygiene.** `npm run build` and `npm test` green. EVAL.md updated. Version bumped to `0.7.0`. README documents the config, the modes and the new UX flow.
 
 ## Open questions
 
@@ -294,14 +445,25 @@ These come from the reference report; the user asked for full standardization. E
 - **Q2 — Single-file tech-debt stores.** Support them as-is (append a `## <domain>/<spec>` section), or always migrate to per-spec files?
   - Recommendation: migrate. Per-spec files are what `docs-maintenance` and `review-ingest` address.
 - **Q3 — Live accessibility checks.** Should `ux-advisor` get `Bash` to drive `agent-browser` against the prototype route?
-  - Recommendation: no, keep it read-only. The `prototype` orchestrator already verifies in the browser (Phase 5) and passes observations in the brief.
+  - Recommendation: **yes**, read-only. This reverses the first draft of this spec. Rendered evidence is the single biggest lever: the old agent never saw the UI, and every shipped defect class lived there (RESEARCH A2, B3). Observations relayed by the orchestrator are not enough, because the agent must force states and walk the keyboard itself.
+  - `Write` / `Edit` are dropped at the same time (§7.6).
 - **Q4 — `link --force` with a differing `CLAUDE.md`.** Refuse outright (recommended), or back it up somewhere first and then link?
 - **Q5 — Agent memory.** Should shipped agents declare `memory: project` (Claude Code only)?
   - Recommendation: no. Durable project knowledge belongs in `brain/` (provider-agnostic, reviewable); the migration reference folds it there.
 - **Q6 — `plan` mode and `create-spec`.** Should `plan` also keep the spec gate (verifier on `SPEC.md`)?
   - The user's definition moves review "only to the plan", so this spec says no; confirm before implementing.
+- **Q7 — `FLOW.md` as a map.** Should `FLOW.md` v2 stop being part of the acceptance contract, with `SPEC.md` criteria as the only contract (§7.5)?
+  - Recommendation: yes. It changes `adversarial-verifier`, `adversarial-review` and the §6.2 parity port, and it is what stops a long `FLOW.md` from becoming scope.
+- **Q8 — The `rethink` verdict.** May `ux-advisor` send the user back to another prototype round?
+  - Recommendation: yes, as advice. The user decides, and proceeding records the risk in the spec. The alternative is an agent that may only annotate an approved design, which is the old failure.
+- **Q9 — The calibration page.** Use `brain/chore/ux-review.md` as a fixed convention, as `motion.md` is, or a `paths.*` key in the config?
+  - Recommendation: the convention. No project has this page yet, so there is no existing location to honor.
 
 ## Risks
+
+- **No browser in some tools.** Codex or Cursor installs without `agent-browser`, or a dev route that does not serve. Mitigation: degraded mode (§7.3.9) is explicit, short and honest, and it is still better grounded than the old text-only pass because it reads the components.
+- **A slower prototype hand-off.** The browser pass adds minutes. Mitigation: it runs once per spec, at the one moment a rendered UI exists, and it replaces three automatic text-only passes.
+- **A weak benchmark.** Three cases and one judge. Mitigation: the ground truth is compiled before the run, from defects that actually shipped. The thresholds are fixed in advance and failures iterate the agent, never the targets.
 
 - **Instruction sprawl.** Mode conditions at every gate make the skills longer. Mitigation: one shared phrasing ("**Gate — `review.mode`: total**") and the matrix lives once in the Brain Schema; skills reference it.
 - **Detection false positives.** A doc that merely mentions "persona" or "tech debt". Mitigation: the CLI only reports candidates; the LLM decides with the user. Nothing is moved without confirmation.
