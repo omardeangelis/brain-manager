@@ -27,14 +27,15 @@ updated: 2026-10-05
    - **Resolved on 2026-10-05:**
      - Q3: yes, plus screenshots;
      - Q7: yes;
-     - Q8: yes, as small prototype changes iterated on.
-   - **Still open:** Q1, Q2, Q4, Q5, Q6, Q9.
+     - Q8: yes, as small prototype changes iterated on;
+     - Q9: fixed path `brain/chore/ux-review.md`.
+   - **Still open:** Q1, Q2, Q4, Q5, Q6.
    - The plan follows each recommendation. A different answer changes:
    - Q1 → T11;
    - Q2 → T9;
    - Q3, Q8, Q9 → T11b;
    - Q4 → T6;
-   - Q5 → T14;
+   - Q5 → T13 (agent frontmatter) and T14 (memory folder migration);
    - Q6 → T8;
    - Q7 → T11b and T12.
 3. **Keep the repo conventions.**

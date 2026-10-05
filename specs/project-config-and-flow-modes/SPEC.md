@@ -255,7 +255,13 @@ These come from the reference report; the user asked for full standardization. E
    - offers to replace it with the shipped agent;
    - lists the docs that mention the old name, for the user to update;
    - routes its project-specific content (personas, risk surfaces) to §1 and §5 first.
-5. **Agent memory (B5).** The migration reference explains how to fold durable memories into brain pages: personas → `brain/personas.md`, risk surfaces and conventions → `AGENTS.md`, motion → `brain/chore/motion.md`, component traps and rejected UX findings → `brain/chore/ux-review.md` (§7.6). Whether shipped agents should declare `memory:` is Q5.
+5. **Agent memory (B5).** The migration reference explains how to fold durable memories into brain pages:
+   - personas → `brain/personas.md`;
+   - risk surfaces and conventions → `AGENTS.md`;
+   - motion → `brain/chore/motion.md`;
+   - component traps and rejected UX findings → `brain/chore/ux-review.md` (§7.6).
+
+   Which shipped agents keep a `memory:` of their own is Q5.
 
 ## 7. `ux-advisor` redesign: role, moment, method
 
@@ -479,15 +485,22 @@ The redesign is accepted on the replay benchmark in RESEARCH part D (PLAN T17), 
   - `Write` / `Edit` are dropped at the same time (§7.6).
 - **Q4 — `link --force` with a differing `CLAUDE.md`.** Refuse outright (recommended), or back it up somewhere first and then link?
 - **Q5 — Agent memory.** Should shipped agents declare `memory: project` (Claude Code only)?
-  - Recommendation: no. Durable project knowledge belongs in `brain/` (provider-agnostic, reviewable); the migration reference folds it there.
+  - **Revised recommendation (2026-10-05): decide per agent.** The first recommendation was "no" for all of them. The reference project's numbers change it:
+    - its `adversarial-verifier` holds 211 memory files: 112 feedback, 83 project, 13 reference;
+    - the feedback notes are verification lessons (an assertion that compares a constant with itself, a test that asserts on a rebuilt node), not project facts;
+    - folding them into brain pages would be either lossy or a large job, and without `memory:` the verifier stops reading them.
+  - The proposal, agent by agent:
+    - **`adversarial-verifier`, `review-classifier`:** `memory: project`. Their lessons are about how to check, and they keep accruing. The migration renames the legacy `review-classifier-router` folder to `review-classifier`.
+    - **`ux-advisor`:** no memory. Its calibration lives in `brain/chore/ux-review.md`, a page the user reviews (Q9). The legacy twin's notes are offered for that page.
+    - **`design-engineer`:** no memory. Its project knowledge lives in `brain/chore/motion.md` (already done in the reference project).
+  - The trade-off: agent-written memory is unreviewed and Claude Code-only. Other tools ignore the key, and lose nothing they have today.
 - **Q6 — `plan` mode and `create-spec`.** Should `plan` also keep the spec gate (verifier on `SPEC.md`)?
   - The user's definition moves review "only to the plan", so this spec says no; confirm before implementing.
 - **Q7 — `FLOW.md` as a map. Resolved 2026-10-05: yes.** `SPEC.md` criteria are the only acceptance contract (§7.5). This changes `adversarial-verifier`, `adversarial-review` and the §6.2 parity port.
 - **Q8 — Can the review reopen the approved prototype? Resolved 2026-10-05: yes, through small changes on the prototype, iterated on.**
   - The verdict is `iterate`, not a new divergent round: at most 3 small changes per round and at most 2 rounds.
   - The `prototype` orchestrator applies them and `ux-advisor` re-reviews (§7.2).
-- **Q9 — The calibration page.** Use `brain/chore/ux-review.md` as a fixed convention, as `motion.md` is, or a `paths.*` key in the config?
-  - Recommendation: the convention. No project has this page yet, so there is no existing location to honor.
+- **Q9 — The calibration page. Resolved 2026-10-05: fixed path.** `brain/chore/ux-review.md` is a convention, as `motion.md` is, with no `paths.*` key. No project has this page yet, so there is no existing location to honor.
 
 ## Risks
 
