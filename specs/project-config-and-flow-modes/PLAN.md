@@ -11,7 +11,7 @@ updated: 2026-10-05
 
 # Plan: project-aware install, review modes, prototype-gated UX review, router detection
 
-**Status:** Planned — not started. Written to be executed in a separate session.
+**Status:** Planned — not started. All SPEC open questions were resolved on 2026-10-05; the spec is `approved`. Written to be executed in a separate session.
 **Branch:** `feat/project-config-and-flow-modes` (this plan is its first commit).
 **Spec:** [SPEC.md](SPEC.md) · **Evidence:** [REFERENCE-sevedemo.md](REFERENCE-sevedemo.md), [RESEARCH-ux-advisor.md](RESEARCH-ux-advisor.md)
 
@@ -23,14 +23,7 @@ updated: 2026-10-05
    - [RESEARCH-ux-advisor.md](RESEARCH-ux-advisor.md): why the UX agent is redesigned, and the benchmark that accepts it;
    - `test/EVAL.md`: the release bar;
    - `README.md` § "How upgrades stay safe".
-2. **Resolve the open questions SPEC Q1–Q9 with the maintainer first.**
-   - **Resolved on 2026-10-05:**
-     - Q3: yes, plus screenshots;
-     - Q7: yes;
-     - Q8: yes, as small prototype changes iterated on;
-     - Q9: fixed path `brain/chore/ux-review.md`.
-   - **Still open:** Q1, Q2, Q4, Q5, Q6.
-   - The plan follows each recommendation. A different answer changes:
+2. **The SPEC decisions Q1–Q9 are settled** (2026-10-05; SPEC → "Decisions"). Do not reopen them; if one turns out unworkable, stop and ask the maintainer. Each lands in:
    - Q1 → T11;
    - Q2 → T9;
    - Q3, Q8, Q9 → T11b;
@@ -250,7 +243,7 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
     - `review-tree` → `<reviews>/<domain>/<spec>/`.
     - Case A → `<reviews>/<slug>/`.
   - Keep both wikilink conventions, chosen by location, in `brain-bookkeeping.md`, both templates, `scope-and-naming.md` and `stop-conditions.md`.
-  - Single-file stores: per SPEC Q2 (recommended: migrate).
+  - Single-file stores: per SPEC Q2, migrate with confirmation.
 - **validation:**
   - `grep -rn "tech-debt/" assets skills` → only token forms, plus the Brain Schema defaults table.
   - Same check for `brain/review/` and the spec-folder phrasing.
@@ -263,7 +256,7 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
   - `assets/skills/create-spec/SKILL.md`
   - `assets/skills/prototype/SKILL.md` (Phase 1 scope, "In a brain project")
 - **description:**
-  - `ux-advisor` reads `<personas>` first and uses those personas verbatim. Generic axes and an open question are the fallback, only when `paths.personas` is `null`.
+  - `ux-advisor` reads `<personas>` first, takes the segments verbatim and derives concrete situations from them (SPEC §7.3, step 5). Generic axes and an open question are the fallback, only when `paths.personas` is `null`.
   - `create-spec` and `prototype` Phase 1 name the persona(s) from the same source.
 - **validation:** `ux-advisor` mentions `brain/domains/` only for flows and contracts; personas come from the config path.
 - **review_mode:** docs
@@ -379,7 +372,12 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
   - Each "read the project" section reads the config first.
   - Each reads the root router as "`AGENTS.md` (fallback: `CLAUDE.md`)".
   - Check that no agent hardcodes a path covered by `paths.*`.
-- **validation:** Grep `root \`AGENTS.md\`` in `assets/agents`: every occurrence carries the fallback, or sits in a sentence that already states it.
+  - **Memory (Q5):**
+    - `adversarial-verifier` and `review-classifier` gain `memory: project` in their frontmatter;
+    - `ux-advisor` and `design-engineer` declare none.
+- **validation:**
+  - Grep `root \`AGENTS.md\`` in `assets/agents`: every occurrence carries the fallback, or sits in a sentence that already states it.
+  - `grep -l "^memory:" assets/agents/*.md` lists exactly `adversarial-verifier.md` and `review-classifier.md`.
 - **review_mode:** docs
 
 ### T14 — init-brain: project context, router, legacy aliases
@@ -407,6 +405,7 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
     - the per-skill wiring list loses `ux/design → create-spec / create-plan / implement-spec`: UX now lives in `prototype` only.
   - **migration.md:**
     - fold agent memories into brain pages (SPEC §6.5);
+    - when the user replaces a legacy twin of an agent that keeps memory (Q5), rename its folder to the shipped name: `.claude/agent-memory/review-classifier-router/` → `review-classifier/`;
     - a legacy UX agent's component-mechanics memories become the "Component traps" part of `brain/chore/ux-review.md`, shown to the user first;
     - list the docs that mention legacy agent names.
   - **onboard:** check that the inlining picks up the two new references (it inlines `references/*` mentioned by the playbook).
@@ -464,6 +463,10 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
   5. **Run `upgrade --force`** for the adopted suite files, with the user's consent. This is a throwaway worktree.
   6. **Run `doctor`.**
   7. **Diff** every suite skill and shipped agent against `assets/`.
+  8. **Check agent memory** per SPEC AC 11:
+     - the verifier's folder is untouched;
+     - the classifier's folder is renamed;
+     - the UX notes were offered for `brain/chore/ux-review.md`.
 - **validation:**
   - **SPEC AC 11** holds.
   - **Record the outcome** in this plan's log:

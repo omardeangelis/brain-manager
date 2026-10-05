@@ -1,7 +1,7 @@
 ---
 domain: compat
 type: spec
-status: draft
+status: approved
 links:
   - "[[specs/project-config-and-flow-modes/PLAN]]"
   - "[[specs/project-config-and-flow-modes/REFERENCE-sevedemo]]"
@@ -121,7 +121,7 @@ Each line carries the path, the matched heading and `kind: file | section`.
 | Finding | Action |
 |---|---|
 | One directory store | `paths.techDebt` = it, even when it is not `brain/tech-debt`. |
-| A single file | Ask: migrate it into `<paths.techDebt>/<domain>/<spec>.md` (the existing migration path), or keep it (open question Q2). |
+| A single file | Propose migrating it into `<paths.techDebt>/<domain>/<spec>.md` (the existing migration path), with confirmation (Q2). |
 | None | `brain/tech-debt`. |
 
 **Consumers.** Every literal `tech-debt/<domain>/<spec>.md` and `brain/tech-debt/` in skills, agents, the Brain Schema, init-brain, `scan.ts` and `doctor.ts` becomes `<paths.techDebt>/<domain>/<spec>.md`. `doctor` checks the configured directory instead of the hardcoded one. The inventory of touch points is in PLAN T9.
@@ -261,7 +261,7 @@ These come from the reference report; the user asked for full standardization. E
    - motion → `brain/chore/motion.md`;
    - component traps and rejected UX findings → `brain/chore/ux-review.md` (§7.6).
 
-   Which shipped agents keep a `memory:` of their own is Q5.
+   Per Q5, `adversarial-verifier` and `review-classifier` keep a `memory: project` of their own. When the user replaces a legacy twin, the migration renames its memory folder to the shipped name (`.claude/agent-memory/review-classifier-router/` → `review-classifier/`).
 
 ## 7. `ux-advisor` redesign: role, moment, method
 
@@ -463,6 +463,10 @@ The redesign is accepted on the replay benchmark in RESEARCH part D (PLAN T17), 
     - suite skills and shipped agents byte-identical to the package;
     - config `review.mode: none` (confirmed with the user), `review.location: review-tree`, `paths.techDebt: brain/tech-debt`, `paths.personas: brain/personas.md`;
     - `AGENTS.md` canonical with `CLAUDE.md` linked;
+    - agent memory per Q5:
+      - `.claude/agent-memory/adversarial-verifier/` untouched;
+      - the legacy `review-classifier-router/` folder renamed to `review-classifier/`;
+      - the `ux-flow-strategist` notes offered for `brain/chore/ux-review.md`;
     - `brain doctor` exit 0.
 12. **`ux-advisor` redesigned per §7.**
     - The agent states its role and the moment table (§7.1–7.2) and the three verdicts.
@@ -473,19 +477,19 @@ The redesign is accepted on the replay benchmark in RESEARCH part D (PLAN T17), 
 13. **Replay benchmark passes** (RESEARCH part D, PLAN T17). On the three reference prototypes the redesigned agent meets every pass threshold against the old `FLOW.md` baseline. The results table is recorded in the PLAN log.
 14. **Release hygiene.** `npm run build` and `npm test` green. EVAL.md updated. Version bumped to `0.7.0`. README documents the config, the modes and the new UX flow.
 
-## Open questions
+## Decisions (formerly open questions)
 
-- **Q1 — Where the `ux-advisor` result persists between `prototype` and `create-spec`** if the run is interrupted.
-  - Recommendation: `create-spec` is entered in the same run (Phase 6 already does this), so the result is passed in context and `create-spec` writes `FLOW.md`.
-  - If the user stops after the review, persist it as `UX-REVIEW.md` next to the surviving prototype variant. `create-spec` picks it up from the cited prototype path, and it is deleted with the surface.
-- **Q2 — Single-file tech-debt stores.** Support them as-is (append a `## <domain>/<spec>` section), or always migrate to per-spec files?
-  - Recommendation: migrate. Per-spec files are what `docs-maintenance` and `review-ingest` address.
+All nine were resolved by the maintainer on 2026-10-05. Each keeps its rationale so the executing session knows why.
+
+- **Q1 — Where the `ux-advisor` result persists between `prototype` and `create-spec`. Resolved: in context, with a file only on interruption.**
+  - `create-spec` is entered in the same run (Phase 6 already does this), so the review is passed in context. `create-spec` writes `FLOW.md`.
+  - If the user stops after the review, it is persisted as `UX-REVIEW.md` next to the surviving prototype variant. `create-spec` picks it up from the cited prototype path, and the file is deleted with the surface.
+- **Q2 — Single-file tech-debt stores. Resolved: migrate, with confirmation.** Per-spec files are what `docs-maintenance` and `review-ingest` address; supporting a single file would complicate every skill.
 - **Q3 — Live accessibility checks. Resolved 2026-10-05: yes.** `ux-advisor` gets `Bash` to drive `agent-browser` against the prototype route, read-only. The maintainer adds that it must also **see the screens**: screenshots of every viewport and state it relies on, opened and inspected (§7.3, step 2).
   - Rendered evidence is the single biggest lever: the old agent never saw the UI, and every shipped defect class lived there (RESEARCH A2, B3).
   - `Write` / `Edit` are dropped at the same time (§7.6).
-- **Q4 — `link --force` with a differing `CLAUDE.md`.** Refuse outright (recommended), or back it up somewhere first and then link?
-- **Q5 — Agent memory.** Should shipped agents declare `memory: project` (Claude Code only)?
-  - **Revised recommendation (2026-10-05): decide per agent.** The first recommendation was "no" for all of them. The reference project's numbers change it:
+- **Q4 — `link --force` with a differing `CLAUDE.md`. Resolved: refuse.** Reconcile first: init-brain shows the merge for confirmation, then links. There is no backup-and-link path.
+- **Q5 — Agent memory. Resolved: per agent, as below.** The first draft recommended no memory for any of them. The reference project's numbers changed that:
     - its `adversarial-verifier` holds 211 memory files: 112 feedback, 83 project, 13 reference;
     - the feedback notes are verification lessons (an assertion that compares a constant with itself, a test that asserts on a rebuilt node), not project facts;
     - folding them into brain pages would be either lossy or a large job, and without `memory:` the verifier stops reading them.
@@ -494,8 +498,7 @@ The redesign is accepted on the replay benchmark in RESEARCH part D (PLAN T17), 
     - **`ux-advisor`:** no memory. Its calibration lives in `brain/chore/ux-review.md`, a page the user reviews (Q9). The legacy twin's notes are offered for that page.
     - **`design-engineer`:** no memory. Its project knowledge lives in `brain/chore/motion.md` (already done in the reference project).
   - The trade-off: agent-written memory is unreviewed and Claude Code-only. Other tools ignore the key, and lose nothing they have today.
-- **Q6 — `plan` mode and `create-spec`.** Should `plan` also keep the spec gate (verifier on `SPEC.md`)?
-  - The user's definition moves review "only to the plan", so this spec says no; confirm before implementing.
+- **Q6 — `plan` mode and `create-spec`. Resolved: no.** In `plan` mode only the plan gate runs, as the maintainer's definition says. The §3 matrix already reflects it.
 - **Q7 — `FLOW.md` as a map. Resolved 2026-10-05: yes.** `SPEC.md` criteria are the only acceptance contract (§7.5). This changes `adversarial-verifier`, `adversarial-review` and the §6.2 parity port.
 - **Q8 — Can the review reopen the approved prototype? Resolved 2026-10-05: yes, through small changes on the prototype, iterated on.**
   - The verdict is `iterate`, not a new divergent round: at most 3 small changes per round and at most 2 rounds.

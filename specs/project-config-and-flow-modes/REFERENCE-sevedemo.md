@@ -104,6 +104,7 @@ The project copies differ from **0.5.0 in exactly the same way**: between 0.5.0 
 5. **Agent memory.**
    - The project's three agents declare `memory: project`. There are 211 files under `.claude/agent-memory/adversarial-verifier/`, 23 under `ux-flow-strategist/` and 9 under `review-classifier-router/`.
    - The shipped agents declare no memory, so those files would be orphaned.
+   - → **SPEC Q5:** `adversarial-verifier` and `review-classifier` keep `memory: project`, and the classifier's folder is renamed. The UX notes go to `brain/chore/ux-review.md`.
    - The `design-engineer` memory, 10 files, was already folded into `brain/chore/motion.md`.
 6. **Personas.**
    - The four personas (Freelance, Recruiter, Small business, Potential freelancer) are written **inside** `ux-flow-strategist.md` (`## The four SeVedemo personas`).
@@ -141,4 +142,4 @@ Success means re-running the installer on sevedemo leaves **every suite skill an
 | The four personas | `brain/personas.md` (extracted from `ux-flow-strategist.md`), referenced by `paths.personas` |
 | Gates, Solid rules, critical paths, PR base | root `AGENTS.md` (promoted from `CLAUDE.md`; `CLAUDE.md → AGENTS.md`) |
 | Motion stack + decisions | `brain/chore/motion-stack.md`, `brain/chore/motion.md` (already done) |
-| Durable agent memories | folded into the pages above, or left with the renamed agent (SPEC open question) |
+| Durable agent memories | verifier and classifier: their own `memory: project` (classifier folder renamed); UX notes: `brain/chore/ux-review.md`; motion: `brain/chore/motion.md` (SPEC Q5) |
