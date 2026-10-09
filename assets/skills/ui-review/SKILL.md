@@ -211,7 +211,7 @@ Every finding passes all of these; one that fails any becomes an open question w
 ## Falsification pass
 
 Before reporting, for every finding that passed the gate:
-- [ ] It is not an intentional region: a scroll area, a carousel, truncation by design with the full text reachable, a decorative overflow.
+- [ ] It is not an intentional region: a scroll area, a carousel, truncation by design, a decorative overflow.
 - [ ] It is not in the Project bar's accepted exceptions or in Suppressed findings.
 - [ ] It is not UX (task, outcome, what the copy means), not motion (it changed while something animated), and not taste.
 - [ ] It reproduces: re-run the probe or re-open the screenshot once. A probe result that looks wrong goes through the fixture self-check.

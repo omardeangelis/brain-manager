@@ -7,7 +7,7 @@ How a surface holds across the width range: rows that wrap where the design does
 - **WCAG 2.2 1.4.10 Reflow (AA).** At 320 CSS px wide, content and functions stay available with vertical scrolling only. Content that needs two dimensions (a data table, a map, a code block) may scroll inside its own region.
 - **The row contract holds at every width** (named heuristic). A component designed for a fixed number of rows (a tag preview, a toolbar, a tab bar, a button group) keeps that number at every width of the range, not only at common device widths. A wrap that appears in one narrow band of widths is a defect even when the band is a few pixels wide.
 - **Geometry follows the viewport** (named heuristic). An open overlay, drawer or card that is resized matches a fresh load at the new width. One that keeps the width or position it computed at opening is stale.
-- **Text fits at the densest realistic content** (named heuristic). With the longest values the data allows, labels and values neither collide nor clip. Truncation is fine when it is designed (an ellipsis) and the full text stays reachable.
+- **Text fits at the densest realistic content** (named heuristic). With the longest values the data allows, labels and values neither collide nor clip. Truncation is fine when it is designed (an ellipsis).
 - **Larger text survives** (named heuristic). The sweep at 1.25 × the root font size keeps the contracts above. It is a robustness check, not a test of 1.4.4 Resize Text or 1.4.12 Text Spacing: those need their own check (text at 200 %, or the text-spacing overrides injected and the surface inspected for clipping), and are listed under Not tested otherwise.
 
 ## Project override
