@@ -148,7 +148,10 @@ describe.skipIf(!agentBrowserOnPath)(label, () => {
   }
   const control = (out: any, selector: string): any => out.controls.find((c: any) => c.selector === selector)
 
-  beforeAll(() => {
+  // Async: a synchronous tsc run blocks the worker's event loop, and on a loaded
+  // machine vitest then fails the run with `Timeout calling "onTaskUpdate"`.
+  beforeAll(async () => {
+    const run = promisify(execFile)
     // A private package root: package.json + compiled dist, with the shipped
     // folders and node_modules linked in (dist/services/Assets.js finds assets at ../..).
     const pkg = fs.mkdtempSync(path.join(os.tmpdir(), "ui-review-pkg-"))
@@ -159,19 +162,16 @@ describe.skipIf(!agentBrowserOnPath)(label, () => {
       fs.symlinkSync(path.join(REPO_ROOT, dir), path.join(pkg, dir), "dir")
     }
     const tsc = path.join(REPO_ROOT, "node_modules", "typescript", "bin", "tsc")
-    execFileSync(process.execPath, [tsc, "-p", path.join(REPO_ROOT, "tsconfig.json"), "--outDir", path.join(pkg, "dist")], {
-      stdio: "pipe"
-    })
+    await run(process.execPath, [tsc, "-p", path.join(REPO_ROOT, "tsconfig.json"), "--outDir", path.join(pkg, "dist")])
 
     const skillsDir = path.join(work, "skills")
-    execFileSync(process.execPath, [path.join(pkg, "dist", "bin.js"), "install-skill", "ui-review", "--skills-dir", skillsDir, "--json"], {
-      cwd: work,
-      stdio: "pipe"
+    await run(process.execPath, [path.join(pkg, "dist", "bin.js"), "install-skill", "ui-review", "--skills-dir", skillsDir, "--json"], {
+      cwd: work
     })
     skillDir = path.join(skillsDir, "ui-review")
     expected = JSON.parse(fs.readFileSync(path.join(skillDir, "fixture", "expected.json"), "utf8"))
     fixtureUrl = pathToFileURL(path.join(skillDir, "fixture", "index.html")).href
-    ab(["open", fixtureUrl])
+    await run("agent-browser", ["--session", SESSION, "open", fixtureUrl], { timeout: 60_000 })
   }, TIMEOUT)
 
   afterAll(() => {

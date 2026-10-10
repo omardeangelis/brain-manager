@@ -479,6 +479,74 @@ describe("prototype — Phase 6: two reviewers, one loop", () => {
   })
 })
 
+describe("create-spec and the Brain Schema — the UI review reaches the spec", () => {
+  const inOrder = (text: string, needles: Array<string>) => {
+    const at = needles.map((n) => text.indexOf(n))
+    for (const [i, n] of needles.entries()) expect(at[i], n).toBeGreaterThanOrEqual(0)
+    expect(at).toEqual([...at].sort((a, b) => a - b))
+  }
+
+  it("flow-map maps every section of the ui-reviewer contract, merges by element, and suppresses on ui-review.md", () => {
+    const dir = freshDir()
+    const skills = path.join(dir, "skills")
+    expect(run(["install-skill", "create-spec", "--skills-dir", skills], dir).code).toBe(0)
+    expect(run(["install-skill", "ui-review", "--skills-dir", skills], dir).code).toBe(0)
+    const skill = fs.readFileSync(path.join(skills, "create-spec", "SKILL.md"), "utf8")
+    const flowMap = fs.readFileSync(path.join(skills, "create-spec", "references", "flow-map.md"), "utf8")
+    const agent = fs.readFileSync(path.join(dir, "agents", "ui-reviewer.md"), "utf8")
+
+    // Every §3 section, as the shipped agent's output contract names it, has a row.
+    const contract = agent.split("## Output contract")[1]!.match(/```\n([\s\S]*?)\n```/)?.[1] ?? ""
+    const sections = [...contract.matchAll(/^## ([A-Z][a-z]+(?: [a-z]+)*)/gm)].map((m) => m[1]!.toLowerCase())
+    expect(sections).toHaveLength(9)
+    const table = (flowMap.split("| UI review section | Goes to |")[1] ?? "").split("\n\n")[0]!
+    const rows = table.split("\n").filter((l) => l.startsWith("| ") && !l.startsWith("|---"))
+    const rowFor = (section: string) => rows.find((r) => r.split("|")[1]!.toLowerCase().includes(section)) ?? ""
+    for (const section of sections) expect(rowFor(section), section).not.toBe("")
+    expect(rowFor("decisions")).toContain("one acceptance criterion each")
+    expect(rowFor("mechanical fixes")).toMatch(/one\**\s+criterion that lists them/)
+    expect(rowFor("not verified on device")).toContain("Constraints")
+    expect(rowFor("open questions")).toContain("Open Questions")
+    expect(rowFor("prototype changes")).toContain("Decision Log")
+    expect(rowFor("checked and clean")).toContain("not copied")
+
+    // Source: context, or UI-REVIEW.md after an interrupted run.
+    expect(flowMap).toContain("`UI-REVIEW.md`")
+    // The merge rule.
+    expect(flowMap).toContain(
+      "A UX finding and a UI finding on the same element become one criterion. The UI wording carries the cause and the fix; the UX wording carries the task consequence."
+    )
+    // A rejected UI finding: brain/chore/ui-review.md, four sections, base frontmatter, Project bar left to the user.
+    expect(flowMap).toContain("`brain/chore/ui-review.md`")
+    const page = [...flowMap.matchAll(/```markdown\n([\s\S]*?)\n```/g)].map((m) => m[1]!).find((b) => b.includes("## Project bar")) ?? ""
+    inOrder(page, ["domain: _root", "type: concept", "## Project bar", "## Component traps", "## Kept examples", "## Suppressed findings"])
+
+    // SKILL.md: reads the UI review, routes rejections by reviewer, never spawns the agent.
+    for (const needle of ["`ui-reviewer` review", "`UI-REVIEW.md`", "`brain/chore/ui-review.md`", "Never spawn `ux-advisor` or `ui-reviewer` yourself"]) {
+      expect(skill, needle).toContain(needle)
+    }
+  })
+
+  it("the twins are byte-identical and give ui-reviewer its place next to ux-advisor", () => {
+    const agentsMd = fs.readFileSync(path.join(REPO_ROOT, "assets", "brain", "AGENTS.md"))
+    expect(agentsMd.equals(fs.readFileSync(path.join(REPO_ROOT, "assets", "brain", "CLAUDE.md")))).toBe(true)
+    const schema = agentsMd.toString("utf8")
+    const lineOf = (prefix: string) => schema.split("\n").find((l) => l.startsWith(prefix)) ?? ""
+
+    // Skill routing: prototype has both reviewers review the winner.
+    for (const agentName of ["`ux-advisor`", "`ui-reviewer`"]) expect(lineOf("- Use `prototype`")).toContain(agentName)
+    // Advisor list: the ux-advisor bullet hands static UI and motion on; ui-reviewer has its own bullet.
+    const ux = lineOf("- `ux-advisor` — ")
+    expect(ux).toContain("Static UI goes to `ui-reviewer`, motion and interaction craft to `design-engineer`.")
+    expect(ux).not.toContain("stays with `design-engineer`")
+    inOrder(schema, ["### Advisor subagents", "- `ux-advisor` — ", "- `ui-reviewer` — ", "> **No subagent runtime?**"])
+    // chore/: ui-review.md listed next to ux-review.md, with its four parts.
+    const chore = schema.split("### `chore/`")[1]!.split("\n### ")[0]!
+    inOrder(chore, ["- `ux-review.md`", "- `ui-review.md`"])
+    inOrder(chore.split("- `ui-review.md`")[1]!, ["**Project bar**", "**Component traps**", "**Kept examples**", "**Suppressed findings**"])
+  })
+})
+
 describe("scan — frontend stack", () => {
   it("reports a non-React stack and asks for the design-engineering adaptation", () => {
     const dir = freshDir()

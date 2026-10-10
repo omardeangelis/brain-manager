@@ -38,7 +38,7 @@ Tell the user:
 - how the spec was checked:
   - under `review.mode: total`: that it passed the `adversarial-verifier` quality gate, and any BLOCKER it raised was resolved;
   - under `plan` or `none`: that it was self-checked against the quality bar, and that the verifier pass runs on request
-- for a user-facing spec with no prototype review: that no UX review ran, and that `/prototype` is available
+- for a user-facing spec with no prototype review: that no UX or UI review ran, and that `/prototype` is available
 - that brain index and log were updated
 - that the spec is ready for review
 - the suggested next step

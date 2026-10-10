@@ -1,20 +1,28 @@
-# The prototype review and the `FLOW.md` map
+# The prototype reviews and the `FLOW.md` map
 
-Use this reference when the spec starts from an approved `prototype` winner that `ux-advisor` reviewed. Two rules hold throughout:
+Use this reference when the spec starts from an approved `prototype` winner that `ux-advisor`, `ui-reviewer`, or both reviewed. `prototype` Phase 6 runs them in parallel on the winner. One owner per concern:
 
-- **`SPEC.md` is the only acceptance contract.** Everything the review asks for that the spec adopts becomes an acceptance criterion there.
+> UX → `ux-advisor` · static UI of the rendered page → `ui-reviewer` (bar and probes: the `ui-review` skill) · motion and interaction craft → `design-engineer` (`design-engineering`)
+
+Two rules hold throughout:
+
+- **`SPEC.md` is the only acceptance contract.** Everything a review asks for that the spec adopts becomes an acceptance criterion there.
 - **`FLOW.md` is a map, not a second contract.** It shows where each criterion lives in the flow. Every requirement in it cites an acceptance-criterion id; a requirement stated only in `FLOW.md` is a defect, and the verifier ignores a row with no id.
 
-## Where the review comes from
+`create-spec` never spawns `ux-advisor` or `ui-reviewer`: it reads the reviews they already returned.
 
-- **In context:** `prototype` Phase 6 opened this run right after the review.
-- **`UX-REVIEW.md`:** the user stopped between the review and the spec, so `prototype` saved it next to the surviving variant. Read it from the cited prototype path. It is deleted with the prototype surface.
+## Where the reviews come from
 
-No review means no `FLOW.md`. Do not write one from your own reading of the prototype.
+- **In context:** `prototype` Phase 6 opened this run right after the reviews.
+- **`UX-REVIEW.md` and `UI-REVIEW.md`:** the user stopped between the reviews and the spec, so `prototype` saved each one next to the surviving variant (`UI-REVIEW.md` next to `UX-REVIEW.md`). Read them from the cited prototype path. They are deleted with the prototype surface.
 
-## Fold the review into `SPEC.md`
+Either review can be missing: `prototype` skips an agent that is not installed. Fold in the one you have.
+
+No UX review means no `FLOW.md`, even when a UI review exists. Do not write one from your own reading of the prototype.
 
 Number the acceptance criteria (`AC1`, `AC2`, …) so `FLOW.md` can cite them.
+
+## Fold the UX review into `SPEC.md`
 
 | Review section | Goes to |
 |---|---|
@@ -32,7 +40,73 @@ Number the acceptance criteria (`AC1`, `AC2`, …) so `FLOW.md` can cite them.
 
 Do not copy anything else from the review into the spec: the evidence stays in the review.
 
-**A rejected finding** is dropped from the spec. Offer to append it to `brain/chore/ux-review.md` → **Suppressed findings**, as one line: the finding, where it was, and why the project rejected it. `ux-advisor` reads that page before every review, so the same finding does not come back. Create the page on first use, with three sections: **Component traps** · **Kept examples** · **Suppressed findings**. Use the base frontmatter with `domain: _root`, `type: concept`.
+## Fold the UI review into `SPEC.md`
+
+| UI review section | Goes to |
+|---|---|
+| Verdict and Engines | one line in Context, next to the UX verdict: the verdict, the engines and widths it measured, and the review date |
+| Decisions | one acceptance criterion each, as for UX, from the review's criterion text. P0 and P1 stay unless the user overrules them; a P2 the user drops goes to Non-Goals |
+| Mechanical fixes | **one** criterion that lists them, one line each with its location |
+| Not verified on device | Constraints ("verified manually on device: …"), each with its manual check, so the plan schedules them |
+| Open questions | Open Questions, each row with its default |
+| Prototype changes (applied in the iterate loop) | Decision Log, each with its exact values |
+| Checked and clean, Not tested | not copied; the evidence stays in the review |
+
+UI criteria keep the review's width range, state and engine, so the plan and the review pipeline can check them on screen.
+
+## One defect, one criterion
+
+Both reviewers can report the same defect: `ux-advisor` by what the person cannot do, `ui-reviewer` by what the page measures. Before numbering, pair the findings that name the same element (the same control or region, in an overlapping state or width range).
+
+**Merge rule:** A UX finding and a UI finding on the same element become one criterion. The UI wording carries the cause and the fix; the UX wording carries the task consequence.
+
+- The merged criterion takes the higher priority of the two.
+- It replaces both: no second criterion names that element for the same defect.
+- When the two reviews disagree on what to do, ask the user; the default is the UI review's fix.
+
+> **AC4.** In the filters bar, Apply stays on the first row at 280–1440 px (today the chips wrap at 412–468 px and push it under the results header; let the chips scroll sideways and keep Apply at the end of the row), so a person who changes a filter at any width can find Apply and see the results update.
+
+## `FLOW.md` and UI criteria
+
+`FLOW.md` stays a flow map: UI criteria need no row in it. A merged criterion is cited where its UX consequence sits in the flow. Never add a row for a width range, a ratio or a focus ring alone.
+
+## Rejected findings
+
+A rejected finding is dropped from the spec. Offer to append it, as one line (the finding, where it was, and why the project rejected it), to the **Suppressed findings** of the page its reviewer reads before every review, so the same finding does not come back:
+
+- **A UX finding** → `brain/chore/ux-review.md`. Create the page on first use, with three sections: **Component traps** · **Kept examples** · **Suppressed findings**.
+- **A UI finding** → `brain/chore/ui-review.md`. Create the page on first use, with four sections: **Project bar** · **Component traps** · **Kept examples** · **Suppressed findings**.
+- **A merged finding** → each half to its reviewer's page.
+
+Both pages use the base frontmatter with `domain: _root`, `type: concept`. When the page exists without the section, add the section in its place.
+
+**The Project bar is the user's.** It holds the minimum width, the target-size standard, the engines and devices the project supports, and the design-system rules the review enforces. Offer to start it; never fill it in, and never copy a value from the review into it. Until the user writes it, `ui-reviewer` uses its defaults. A new `brain/chore/ui-review.md`:
+
+```markdown
+---
+domain: _root
+type: concept
+links: []
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+
+# UI review: project knowledge
+
+Read before every UI review: by `ui-reviewer`, and by the UI pass of `adversarial-review` through the `ui-review` skill.
+
+## Project bar
+
+_Yours to write: minimum width, target-size standard (24 px by default; 44 or 48 px when the project is touch-first), the engines and devices you support, and the design-system rules the review enforces. Until then the reviewer's defaults apply._
+
+## Component traps
+
+## Kept examples
+
+## Suppressed findings
+
+- <the finding> · <where: selector, state, width range> · <why the project rejected it> (YYYY-MM-DD)
+```
 
 ## `FLOW.md` template
 
