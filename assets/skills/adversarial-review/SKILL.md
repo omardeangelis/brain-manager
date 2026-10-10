@@ -33,7 +33,7 @@ Delegate to both via the `Agent` tool with `subagent_type: "review-classifier"` 
 adversarial-review (orchestrator)
   └─ 1. Scope & artifact resolution  — case A vs B, gather the diff/files, resolve the output folder
   └─ 2. Classification phase         — review-classifier → RUBRIC.md (passes, complexity, impact, humanInLoop)
-  └─ 3. Verification phase           — fan out one adversarial-verifier per rubric pass (parallel) → raw findings
+  └─ 3. Verification phase           — UI pass: serve the changed routes first; fan out one adversarial-verifier per rubric pass (parallel) → raw findings; stop a server you started
   └─ 4. Report synthesis             — consolidate verdicts → REPORT.md (severities, verdict, human checklist)
   └─ 5. Brain bookkeeping            — frontmatter, index.md, log.md, tech-debt linkage
   └─ 6. Stop                         — present verdict + next step, wait for the user
@@ -49,7 +49,7 @@ adversarial-review (orchestrator)
      - `review-tree` → `<reviews>/<domain>/<spec>/`, mirroring the spec path.
 3. For case B, load the spec working set: `SPEC.md`, `FLOW.md` (if present), `PLAN.md` (if present), `IMPLEMENTATION-NOTES.md` (if present). The `SPEC.md` acceptance criteria are the acceptance contract the verifiers judge against; `FLOW.md` is a map that locates them in the flow, not a second contract.
 4. Read `references/classification-phase.md` and run the `review-classifier` agent on the change set. Save its output as `RUBRIC.md` from `assets/RUBRIC-TEMPLATE.md`.
-5. Read `references/verification-phase.md` and spawn one `adversarial-verifier` agent per `passes[]` entry — in parallel, each with its scoped charter, the relevant artifact slice, the project non-negotiables read from the root `AGENTS.md` and `brain/`, and (case B) the acceptance criteria it must check, with the `FLOW.md` rows that locate them. Map each pass's `complexity` to a model.
+5. Read `references/verification-phase.md` and spawn one `adversarial-verifier` agent per `passes[]` entry — in parallel, each with its scoped charter, the relevant artifact slice, the project non-negotiables read from the root `AGENTS.md` and `brain/`, and (case B) the acceptance criteria it must check, with the `FLOW.md` rows that locate them. Map each pass's `complexity` to a model. When the rubric charters a UI pass, serve its routes first and stop the server afterwards (see "UI pass: serve the route").
 6. Read `references/report-synthesis.md` and consolidate the verifier verdicts into `REPORT.md` from `assets/REPORT-TEMPLATE.md`. The overall verdict is `DO NOT SHIP` if any verifier returns an unresolved BLOCKER or a CONTRADICTED claim.
 7. If the rubric set `reviewImpact: critical` / `humanInLoop: true`, the report MUST carry a step-by-step checklist a human is required to follow before anything proceeds.
 8. Read `references/brain-bookkeeping.md` to write frontmatter, update `brain/index.md` (Reviews), append to `brain/log.md`, and (case B) backlink the spec.
@@ -73,6 +73,18 @@ adversarial-review (orchestrator)
 - **Case B — spec implementation review.** A spec folder exists at `brain/specs/<domain>/<spec>/` and was implemented (usually by `implement-spec`). Output lands in **the spec's review folder** (`review.location`): inside the spec folder itself under `spec-folder`, or at `<reviews>/<domain>/<spec>/` under `review-tree`. The review backlinks the spec's `SPEC.md` / `PLAN.md` / `IMPLEMENTATION-NOTES.md`. Verifiers judge the implementation against the spec's acceptance criteria; `FLOW.md` only locates them.
 
 If the user did not say which case applies, infer it: a named/resolvable spec folder → case B; otherwise case A. State the chosen case in the conversation.
+
+### UI pass: serve the route
+
+When `RUBRIC.md` charters a UI pass (a charter beginning `UI pass:`), the verifier judges the rendered page with the `ui-review` skill, and it stays read-only: it never starts anything. Before the verification phase, you serve the page:
+
+1. **Start or locate the dev server** with the dev command the root `AGENTS.md` (fallback: `CLAUDE.md`) documents. If a server already answers at its URL, use it. Otherwise start the command in the background, note that you started it, and wait until the URL answers.
+2. **Map each changed surface to a route,** from the spec's prototype route (case B), the `PLAN.md` task that built the surface, or the project's router (the route that renders the changed component).
+3. **Pass the URLs in the verifier's brief,** one per changed surface (`references/verification-phase.md` → UI pass only).
+4. **Stop the server after the UI pass returns,** only if you started it. A server you found running stays up.
+
+- **Without a route** (no dev command documented, the command fails, or no route renders a changed surface): run the pass on the code only, labelled `DEGRADED`, and write the reason under `REPORT.md` → Coverage.
+- **Without the skill** (`ui-review` not installed: no `<skillsDir>/ui-review/SKILL.md`, where `<skillsDir>` is the `skillsDir` in `brain/.brain-manifest.json`, `.agents/skills` by default): run no UI pass and start no server; `REPORT.md` → Coverage says so in one line.
 
 ### Model selection (per verifier)
 

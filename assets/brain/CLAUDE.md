@@ -75,6 +75,7 @@ The project's own facts, and its one policy knob, live in `brain/brain.config.js
 | `implement-spec`: `adversarial-review` before the acceptance audit | runs; BLOCKERs resolved before finalizing | not run; offered in one line | not run; offered in one line |
 | A `PLAN.md` task that lists review as a closing step | executed | offered, not run | offered, not run |
 | Motion-craft verifier pass | whenever a review runs | same | same |
+| UI verifier pass | whenever a review runs | same | same |
 
 - `total` reviews the spec, the plan and the code. It is the default.
 - `plan` moves every mandatory review onto the plan: decisions are checked before code exists, and the code is reviewed only on request.

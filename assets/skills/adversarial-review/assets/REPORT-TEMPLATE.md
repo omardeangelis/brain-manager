@@ -45,6 +45,7 @@ _If DO NOT SHIP: the single strongest blocking objection, stated plainly._
 
 - Rubric passes run: <n>/<n> (model per pass)
 - Passes skipped or failed: <none — or list; a missing pass on a critical review is DO NOT SHIP until re-run>
+- UI pass: <not chartered | ran on <URL per changed surface> | `DEGRADED`, code only: <why no route: no dev command in the root AGENTS.md, the command failed, no route renders the surface> | not run: the `ui-review` skill is not installed (`brain install-skill ui-review`); not a failed pass>
 
 ## Findings
 

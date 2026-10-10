@@ -547,6 +547,78 @@ describe("create-spec and the Brain Schema — the UI review reaches the spec", 
   })
 })
 
+describe("adversarial-review — the UI pass", () => {
+  const GUIDE_LOAD =
+    "Before the first `agent-browser` command, run `agent-browser skills get core` and follow it: it is the usage guide for the installed version."
+  const agent = (name: string) => fs.readFileSync(path.join(REPO_ROOT, "assets", "agents", `${name}.md`), "utf8")
+  const paragraph = (text: string, start: string) => start + text.split(start)[1]!.split("\n\n")[0]!
+
+  it("review-classifier charters a UI pass on the rendered-UI signals, and the motion-craft pass drops target size", () => {
+    const md = agent("review-classifier")
+    const ui = paragraph(md, "**Separate UI concern")
+    // The §4.3 signals, listed the way the motion paragraph lists its own.
+    for (const signal of ["markup", "stylesheets", "style props", "utility classes", "colour", "spacing", "type", "radius", "ARIA", "role", "label attributes", "inline SVG icons"]) {
+      expect(ui, signal).toContain(signal)
+    }
+    for (const needle of ["`UI pass:`", "`ui-review`", "changed lines"]) expect(ui, needle).toContain(needle)
+    const motion = paragraph(md, "**Separate craft concern")
+    expect(motion).toContain("`Motion-craft pass:`")
+    expect(motion).toMatch(/keeps motion and leaves target size to the UI pass/)
+    expect(motion).not.toContain("generic UI pass")
+  })
+
+  it("the orchestrator serves the route, the phase docs carry the UI pass, and the verifier stays read-only", () => {
+    const dir = freshDir()
+    const skills = path.join(dir, "skills")
+    expect(run(["install-skill", "adversarial-review", "--skills-dir", skills], dir).code).toBe(0)
+    const read = (...p: Array<string>) => fs.readFileSync(path.join(skills, "adversarial-review", ...p), "utf8")
+    const inOrder = (text: string, needles: Array<string>) => {
+      const at = needles.map((n) => text.indexOf(n))
+      for (const [i, n] of needles.entries()) expect(at[i], n).toBeGreaterThanOrEqual(0)
+      expect(at).toEqual([...at].sort((a, b) => a - b))
+    }
+
+    // SKILL.md: the four orchestrator steps, in order, and the two fallbacks.
+    const skill = read("SKILL.md")
+    const serve = skill.split("### UI pass: serve the route")[1]!.split("\n### ")[0]!
+    inOrder(serve, ["1. **Start or locate the dev server**", "2. **Map each changed surface to a route","3. **Pass the URLs", "4. **Stop the server"])
+    for (const needle of ["root `AGENTS.md`", "prototype route", "`PLAN.md` task", "router", "only if you started it", "`DEGRADED`", "not installed"]) {
+      expect(serve, needle).toContain(needle)
+    }
+
+    // verification-phase.md: a "UI pass only" paragraph next to the motion-craft one.
+    const phase = read("references", "verification-phase.md")
+    inOrder(phase, ["- **Motion-craft pass only", "- **UI pass only"])
+    const uiPass = phase.split("- **UI pass only")[1]!.split("\n- **The project non-negotiables")[0]!
+    for (const needle of [GUIDE_LOAD, "`ui-review`", "Case A", "Case B", "DOM injection", "`network route`", "No file, server or data changes", "bash <skillsDir>/ui-review/scripts/", "`DEGRADED`", "not installed"]) {
+      expect(uiPass, needle).toContain(needle)
+    }
+    expect(phase.split("- **Motion-craft pass only")[1]!.split("\n- **")[0]!).toContain("target size")
+
+    // classification-phase.md: the RUBRIC is checked for the craft passes.
+    expect(read("references", "classification-phase.md")).toMatch(/UI pass/)
+
+    // REPORT-TEMPLATE.md: Coverage states the UI pass, with both fallbacks.
+    const coverage = read("assets", "REPORT-TEMPLATE.md").split("## Coverage")[1]!.split("\n## ")[0]!
+    for (const needle of ["UI pass", "`DEGRADED`", "not installed"]) expect(coverage, needle).toContain(needle)
+
+    // adversarial-verifier: the in-contract sentence for the UI pass, and the guide-load line.
+    const verifier = agent("adversarial-verifier").split("## Read-only evidence")[1]!.split("\n## ")[0]!
+    for (const needle of [GUIDE_LOAD, "UI pass", "DOM injection", "`network route`", "no file, server or data changes"]) {
+      expect(verifier, needle).toContain(needle)
+    }
+  })
+
+  it("the Brain Schema matrix has the UI verifier pass row, in both twins", () => {
+    const agentsMd = fs.readFileSync(path.join(REPO_ROOT, "assets", "brain", "AGENTS.md"))
+    expect(agentsMd.equals(fs.readFileSync(path.join(REPO_ROOT, "assets", "brain", "CLAUDE.md")))).toBe(true)
+    const rows = agentsMd.toString("utf8").split("### Review modes")[1]!.split("\n\n").find((b) => b.startsWith("| Gate |"))!.split("\n")
+    const motion = rows.indexOf("| Motion-craft verifier pass | whenever a review runs | same | same |")
+    expect(motion).toBeGreaterThan(0)
+    expect(rows[motion + 1]).toBe("| UI verifier pass | whenever a review runs | same | same |")
+  })
+})
+
 describe("scan — frontend stack", () => {
   it("reports a non-React stack and asks for the design-engineering adaptation", () => {
     const dir = freshDir()

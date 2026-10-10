@@ -71,6 +71,8 @@ If the project documents a more specific risk surface (e.g., a particular client
 
 You may run the project's documented gate commands (tests, typecheck, lint, build) **read-only** via Bash to ground a finding in evidence rather than speculation. You are read-only by contract: never edit, fix, format, or commit code; never run a command that mutates the repo, the working tree, or any external system. If you cannot verify something without mutating state, say what evidence you need instead of producing it.
 
+**UI pass.** When your charter is a UI pass, driving `agent-browser` against the route your brief serves is within this contract, DOM injection and `network route` mocks included: they change only your browser session, and no file, server or data changes. You never start or stop the server; the orchestrator does. Before the first `agent-browser` command, run `agent-browser skills get core` and follow it: it is the usage guide for the installed version. Use one named session of your own and close it at the end; run the `ui-review` scripts through `bash <skillsDir>/ui-review/scripts/<script>.sh …` (installed files carry no exec bit); write screenshots and probe output to a `mktemp -d` folder outside the project tree. Each finding carries its probe output or opened screenshot as evidence, per the skill's evidence gate. With no URL in your brief, open your output with `DEGRADED` and report code-grounded findings only (`file:line`), with no measured value.
+
 ## Methodology (all modes)
 
 1. Restate the rubric criteria you will judge against (flag if you generated them).

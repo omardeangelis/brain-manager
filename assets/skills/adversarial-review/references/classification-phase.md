@@ -50,6 +50,7 @@ Do not blindly trust the JSON. Check:
 
    If the change touches any surface the project flags as sensitive, or any of the generic categories above, expect `reviewImpact: critical`. If the classifier did not escalate one of these, re-prompt or override upward and note the override in `RUBRIC.md`.
 4. `count` is justified by breadth/isolation, not arbitrary. Trivial isolated change → 1; moderate multi-concern → 2–3; broad/critical → 3–5+.
+5. **The craft passes match the changed lines.** Rendered-UI code (markup, stylesheets, style props or utility classes, colour / spacing / type / radius tokens, ARIA, role or label attributes, inline SVG icons) charters a pass beginning `UI pass:`; motion code charters one beginning `Motion-craft pass:`. A stylesheet change that only touches `transition`, `animation`, `@keyframes`, easing or duration values charters the motion-craft pass alone, and the motion-craft charter never covers target size. A missing or extra craft pass is the classifier's bug: re-prompt it. When a UI pass is chartered but the `ui-review` skill is not installed (`<skillsDir>/ui-review/SKILL.md`), keep the pass in the RUBRIC and note in `RUBRIC.md` that it will not run (see [verification-phase.md](verification-phase.md) → UI pass only).
 
 ## Write RUBRIC.md
 
