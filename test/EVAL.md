@@ -74,6 +74,13 @@ Run on a toy spec in a throwaway project after `init`.
 | Reference-project dry run | PLAN T16 | suite files byte-identical, config as expected, doctor exit 0 | [man] |
 | Upgrade from 0.6 through the playbook | a 0.6.x install with a UX agent wired into the `## Project Advisors` blocks, an edited Brain Schema, an older-format `FLOW.md` on an unimplemented spec, an un-ingested `REPORT.md`; then `onboard` | init-brain takes the upgrade path (no fresh/migration question); previews `upgrade`; resolves the grouped conflicts; sets review mode and personas with `config set`; removes the UX entries from the blocks; offers to lift the `FLOW.md` rows into criteria and to ingest the report; doctor exit 0 | [man] |
 
+## UI review probes
+
+| Scenario | Command | Expect | |
+|---|---|---|---|
+| ui-review probes | `UI_REVIEW_PROBE_SESSION=<name> npm test` with `agent-browser` on PATH (`test/ui-review-probes.test.ts`) | the installed `ui-review` copy runs through `bash`; `width-sweep`, `resize`, `edge`, `focus-ring`, `hit-area`, `contrast` and `layout-jump` each return `fixture/expected.json` on the defect case and its clean twin; `axe.sh` returns `source: none` in a folder without axe-core; the session is closed afterwards. Without the CLI the suite skips with a note: run the probes by hand on `fixture/index.html` instead | [auto] when the CLI is present, else [man] |
+| `axe.sh` with a local axe-core | `AXE_CORE_DIR=<folder holding axe.min.js> UI_REVIEW_PROBE_SESSION=<name> npm test`, or `bash <skillsDir>/ui-review/scripts/axe.sh '{"scope":"#contrast"}'` on the fixture from a project with `node_modules/axe-core` | `source: node_modules` (`a11y` on agent-browser 0.33.0 or later), the defect counter's `color-contrast` violation; nothing fetched or installed | [man] |
+
 ## Edge / output
 
 | Scenario | Expect | |
