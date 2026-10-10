@@ -419,21 +419,21 @@ describe("ui-reviewer — the agent ships with ui-review", () => {
     expect(md).toMatch(/UI pass\*\* of `adversarial-review`/)
     for (const verdict of ["`proceed`", "`proceed with decisions`", "`iterate`"]) expect(md).toContain(verdict)
 
-    // Method: the guide-load line first, then steps 1-8 of SPEC §2 in order.
+    // Method: the guide-load line first, then steps 1-6 of SPEC §2 in order (the lean method, D10).
     const guide = "Before the first `agent-browser` command, run `agent-browser skills get core` and follow it: it is the usage guide for the installed version."
     inOrder(md, [
       "## Method",
       guide,
       "### 1. Read the project",
-      "### 2. Inventory",
-      "### 3. Measure with the probes",
-      "### 4. Look",
-      "### 5. Device rendering",
-      "### 6. Evidence gate",
-      "### 7. Falsify before reporting",
-      "### 8. Degraded mode",
+      "### 2. Cover every state and width",
+      "### 3. Measure what you report",
+      "### 4. Device rendering",
+      "### 5. Evidence and scope",
+      "### 6. Degraded mode",
       "## Output contract"
     ])
+    expect(md).toContain("**Report every failure you measured,**")
+    expect(md).toMatch(/\*\*Every number you state\*\* .* is in a file in the run folder or visible in a screenshot there/)
     expect(md).toContain("Read `brain/brain.config.json` (keys in `brain/AGENTS.md` → Project configuration). If it is absent, use the defaults listed there.")
     expect(md).toContain("brain/chore/ui-review.md")
     expect(md).toContain("appium driver list --installed")
@@ -457,7 +457,10 @@ describe("ui-reviewer — the agent ships with ui-review", () => {
       "## Open questions"
     ])
     expect(contract).toMatch(/^## Engines .*axe <source> \| not available/m)
-    expect(md).toContain("At most 120 lines. No scores, no praise, no prose sections.")
+    expect(contract).toMatch(/^## Decisions +\(all of them, ranked\)/m)
+    expect(contract).toMatch(/^## Not verified on device .*rule · fix/m)
+    expect(md).toContain("No scores, no praise, no prose sections. Never drop a finding to keep the review short.")
+    expect(md).not.toMatch(/120 lines|≤ 6/)
 
     // Calibration: kept and rejected examples, the rejected ones naming the other owners.
     inOrder(md, ["## Calibration", "**Kept**", "**Rejected**"])
