@@ -19,14 +19,15 @@ description: Implement an approved spec folder while keeping `IMPLEMENTATION-NOT
 
 - MUST use `$tdd`
 - MUST use `$simplify`
-- Use `$agent-browser` when any task `review_mode` is `browser` or `mixed` (the bundled browser-driving tool; requires the `agent-browser` CLI — `npm i -g agent-browser`). Fall back to another browser-driving tool only if it is unavailable.
+- Use `$agent-browser` when any task `review_mode` is `browser` or `mixed` (the bundled browser-driving tool; requires the `agent-browser` CLI — `npm i -g agent-browser`). Before the first `agent-browser` command, run `agent-browser skills get core` and follow it: it is the usage guide for the installed version. Fall back to another browser-driving tool only if it is unavailable.
 
 ## Required Advisor Agents
 
 **Pre-task** — before starting a task whose `location` matches a trigger (see [references/lifecycle.md](references/lifecycle.md) §6):
 
 - user-facing-flow tasks → no advisor: `ux-advisor` reviewed the prototype before the spec was written. Treat the `SPEC.md` criteria that `FLOW.md` cites (states, accessibility, persona dependencies) as part of the task's acceptance surface, not optional polish. When implementation reveals friction no criterion covers, log it in `IMPLEMENTATION-NOTES.md` and raise it with the user.
-- motion / UI-polish tasks (a `review_mode: browser` task carrying motion targets, or any task where an animation decision surfaces beyond `PLAN.md`) → the **`design-engineer`** agent (shipped) to resolve the exact values and the implementation route before the RED test; while writing the motion code, follow the `design-engineering` skill's `references/implementation.md` and `references/accessibility.md` (every movement ships its reduced-motion variant). The agent advises only; it never writes the code.
+- static UI tasks (placement, widths and wrapping, contrast, focus-indicator visibility, target size, accessible names) → no advisor: `ui-reviewer` reviewed the prototype before the spec was written, and its decisions are `SPEC.md` criteria the plan turned into tasks. Build to them; on the implemented change, the UI pass of `adversarial-review` verifies static UI.
+- motion and interaction craft tasks (a `review_mode: browser` task carrying motion targets, or any task where an animation decision surfaces beyond `PLAN.md`) → the **`design-engineer`** agent (shipped) to resolve the exact values and the implementation route before the RED test; while writing the motion code, follow the `design-engineering` skill's `references/implementation.md` and `references/accessibility.md` (every movement ships its reduced-motion variant). The agent advises only; it never writes the code.
 - data/schema-layer tasks → the project's schema/data advisor agent, if one is defined (see `## Project Advisors`; not shipped by default).
 
 **Post-implementation gate** — before the shared acceptance audit / finalization:

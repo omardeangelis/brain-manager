@@ -79,7 +79,8 @@ If this project defines advisor agents (see `## Project Advisors`), delegate to 
 
 - **the data/schema layer** → invoke a project advisor agent (see the skill's `## Project Advisors` section, populated by init-brain) via the `Agent` tool. Brief it with the task description, the proposed schema change, and any relevant SPEC excerpt. Apply its recommendations (column types, nullability, FK cascades, index coverage, migration reversibility) before writing the RED test for that task.
 - **a user-facing app surface** → no advisor: the UX review ran on the prototype before the spec. If implementation reveals friction no acceptance criterion covers, log it in `IMPLEMENTATION-NOTES.md` and raise it with the user instead of widening the scope.
-- **motion / UI polish** (a task with motion targets or `review_mode: browser`, or an animation decision the plan left open) → invoke the shipped **`design-engineer`** agent via the `Agent` tool. Brief it with the task, the target values from `PLAN.md`, and the components involved; apply its exact values (easing, duration, origin, reduced-motion) or log the deviation to `IMPLEMENTATION-NOTES.md`.
+- **static UI** (placement, widths and wrapping, contrast, focus-indicator visibility, target size, accessible names) → no advisor: `ui-reviewer` reviewed the prototype before the spec, and its decisions are acceptance criteria with plan tasks. On the implemented change, the UI pass of `adversarial-review` verifies static UI.
+- **motion and interaction craft** (a task with motion targets, or an animation decision the plan left open) → invoke the shipped **`design-engineer`** agent via the `Agent` tool. Brief it with the task, the target values from `PLAN.md`, and the components involved; apply its exact values (easing, duration, origin, reduced-motion) or log the deviation to `IMPLEMENTATION-NOTES.md`.
 
 Skipping an advisor when its trigger fires must be justified in the conversation (e.g., "schema change is a trivial NOT NULL → NULL flip, advisor pass skipped"). Silent skips are not allowed.
 
@@ -123,7 +124,7 @@ Do not fake completion.
 Use the task `review_mode`:
 
 - `cli`: tests, commands, type-checks, API calls, or non-visual checks
-- `browser`: browser validation through `$agent-browser` (or another browser-driving tool if unavailable)
+- `browser`: browser validation through `$agent-browser` (or another browser-driving tool if unavailable). Before the first `agent-browser` command, run `agent-browser skills get core` and follow it: it is the usage guide for the installed version.
 - `mixed`: both
 
 If running inside a worktree and `portless` is available, prefer it for server-based validation to avoid port conflicts.

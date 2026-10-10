@@ -83,6 +83,24 @@ Run on a toy spec in a throwaway project after `init`.
 | ui-reviewer agent | `init --providers claude`; `install-skill ui-review --skills-dir <dir>/skills`; an install without `ui-review` and `ui-reviewer` (gone from disk and manifest), then `upgrade --skill ui-review`, and separately `upgrade` | 5 agents in `.agents/agents`, `ui-reviewer.md` among them, listing `ui-review` under `skills:`; `install-skill` copies the skill and `ui-reviewer.md` into `<dir>/agents`; both upgrades install the skill and the agent, and `doctor` exits 0 with both tracked `managed`; the agent has `tools: Read, Grep, Glob, Bash` (no `Write`, `Edit` or `memory:`) and two examples (a prototype winner, a live route), and carries the SPEC §Ownership table verbatim, the motion-boundary and target-size lines, the three moments with the `adversarial-review` UI pass, the three verdicts, the guide-load line before method steps 1–8, the §3 output contract in order (Engines naming the axe source; ≤ 120 lines, no scores, no praise), and kept and rejected calibration examples (UX, motion, taste) | [auto] (integration) |
 | `axe.sh` with a local axe-core | `AXE_CORE_DIR=<folder holding axe.min.js> UI_REVIEW_PROBE_SESSION=<name> npm test`, or `bash <skillsDir>/ui-review/scripts/axe.sh '{"scope":"#contrast"}'` on the fixture from a project with `node_modules/axe-core` | `source: node_modules` (`a11y` on agent-browser 0.33.0 or later), the defect counter's `color-contrast` violation; nothing fetched or installed | [man] |
 
+## Ownership
+
+| Scenario | Command | Expect | |
+|---|---|---|---|
+| One owner per concern | the greps below, from the repo root | the first four print nothing: no static UI or target size owned by `design-engineer`, no 44 px rule on the motion side, no "axe in the review pipeline"; the last three print a count of 1 or more for every file | [man] |
+
+```bash
+# Print nothing
+grep -rniE '(layout|placement|contrast|focus.ring|target.size|tap.target|touch.target|visual (polish|accessibility)|static UI|UI.polish)[^.;`]*`design-engineer`' assets skills README.md
+grep -rnE '44 ?px|44×44' assets/skills/design-engineering assets/agents/design-engineer.md
+grep -rniE 'tap.target|touch.target|target.size' assets/skills/design-engineering assets/agents/design-engineer.md | grep -v '`ui-review`'
+grep -rn 'axe in the review pipeline' assets skills README.md
+# Print a count of 1 or more for every file
+grep -c '`ui-reviewer`' assets/agents/ux-advisor.md assets/agents/design-engineer.md assets/skills/design-engineering/SKILL.md
+grep -c 'motion and interaction craft' assets/agents/design-engineer.md assets/skills/create-plan/SKILL.md assets/skills/implement-spec/SKILL.md assets/skills/implement-spec/references/lifecycle.md
+grep -c 'agent-browser skills get core' assets/agents/ux-advisor.md assets/skills/implement-spec/SKILL.md assets/skills/implement-spec/references/lifecycle.md
+```
+
 ## Edge / output
 
 | Scenario | Expect | |
