@@ -12,7 +12,7 @@ automated rows; the rest are a manual smoke pass.
 
 | Scenario | Command | Expect | |
 |---|---|---|---|
-| Claude (skills + agents) | `init --providers claude` | brain/ scaffolded; 11 skills in `.agents/skills`, 4 agents in `.agents/agents`; `.claude/{skills,agents}` + `CLAUDE.md` symlinks; manifest has an `agents` link | [auto] |
+| Claude (skills + agents) | `init --providers claude` | brain/ scaffolded; 11 skills in `.agents/skills`, 5 agents in `.agents/agents`; `.claude/{skills,agents}` + `CLAUDE.md` symlinks; manifest has an `agents` link | [auto] |
 | Brain Schema is managed | `init --providers claude` | manifest role: `brain/AGENTS.md` + `brain/CLAUDE.md` = `managed`, `brain/index.md` = `seed` | [auto] |
 | Router-only (codex/cursor) | `init --providers codex` | `AGENTS.md` is a real file (not symlink); no `.codex/skills` or `.codex/agents`; agents still in `.agents/agents`; manifest links empty | [auto] |
 | Multi-provider | `init --providers claude,codex,cursor` | only claude gets symlinks; codex/cursor covered by `AGENTS.md` | [man] |
@@ -80,6 +80,7 @@ Run on a toy spec in a throwaway project after `init`.
 | Scenario | Command | Expect | |
 |---|---|---|---|
 | ui-review probes | `UI_REVIEW_PROBE_SESSION=<name> npm test` with `agent-browser` on PATH (`test/ui-review-probes.test.ts`) | the installed `ui-review` copy runs through `bash`; `width-sweep`, `resize`, `edge`, `focus-ring`, `hit-area`, `contrast` and `layout-jump` each return `fixture/expected.json` on the defect case and its clean twin; `axe.sh` returns `source: none` in a folder without axe-core; the session is closed afterwards. Without the CLI the suite skips with a note: run the probes by hand on `fixture/index.html` instead | [auto] when the CLI is present, else [man] |
+| ui-reviewer agent | `init --providers claude`; `install-skill ui-review --skills-dir <dir>/skills`; an install without `ui-review` and `ui-reviewer` (gone from disk and manifest), then `upgrade --skill ui-review`, and separately `upgrade` | 5 agents in `.agents/agents`, `ui-reviewer.md` among them, listing `ui-review` under `skills:`; `install-skill` copies the skill and `ui-reviewer.md` into `<dir>/agents`; both upgrades install the skill and the agent, and `doctor` exits 0 with both tracked `managed`; the agent has `tools: Read, Grep, Glob, Bash` (no `Write`, `Edit` or `memory:`) and two examples (a prototype winner, a live route), and carries the SPEC §Ownership table verbatim, the motion-boundary and target-size lines, the three moments with the `adversarial-review` UI pass, the three verdicts, the guide-load line before method steps 1–8, the §3 output contract in order (Engines naming the axe source; ≤ 120 lines, no scores, no praise), and kept and rejected calibration examples (UX, motion, taste) | [auto] (integration) |
 | `axe.sh` with a local axe-core | `AXE_CORE_DIR=<folder holding axe.min.js> UI_REVIEW_PROBE_SESSION=<name> npm test`, or `bash <skillsDir>/ui-review/scripts/axe.sh '{"scope":"#contrast"}'` on the fixture from a project with `node_modules/axe-core` | `source: node_modules` (`a11y` on agent-browser 0.33.0 or later), the defect counter's `color-contrast` violation; nothing fetched or installed | [man] |
 
 ## Edge / output

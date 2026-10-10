@@ -4,6 +4,7 @@ import * as os from "node:os"
 import * as path from "node:path"
 import { fileURLToPath } from "node:url"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { agentSkills } from "../src/core/companions.js"
 import { contentHash } from "../src/core/hash.js"
 
 /**
@@ -241,6 +242,198 @@ describe("install-skill <name> — untracked single-skill copy", () => {
     expect(bad.code).toBe(1)
     expect(bad.stderr).toContain("unknown skill nope")
     expect(bad.stderr).toContain("init-brain")
+  })
+})
+
+describe("ui-review — the skill documents what it ships", () => {
+  it("the installed ui-review/SKILL.md has name: ui-review and documents every file in probes/", () => {
+    const dir = freshDir()
+    const skills = path.join(dir, "skills")
+    expect(run(["install-skill", "ui-review", "--skills-dir", skills, "--json"], dir).code).toBe(0)
+    const skill = path.join(skills, "ui-review")
+    const md = fs.readFileSync(path.join(skill, "SKILL.md"), "utf8")
+
+    const front = md.match(/^---\n([\s\S]*?)\n---\n/)?.[1] ?? ""
+    expect(front).toMatch(/^name: ui-review$/m)
+    expect(front).toMatch(/^description: .*`ui-reviewer`.*UI pass/m)
+
+    // Every probe file, and only those, is documented and invoked through bash
+    // (installed files are written 644, so a bare ./probe.sh fails in projects).
+    const probes = fs.readdirSync(path.join(skill, "probes")).filter((f) => f.endsWith(".js")).map((f) => f.slice(0, -3))
+    expect(probes).toHaveLength(7)
+    for (const probe of probes) {
+      expect(md).toContain(`probes/${probe}.js`)
+      expect(md).toContain(`bash <skillsDir>/ui-review/scripts/probe.sh ${probe} '`)
+    }
+    const invoked = [...md.matchAll(/scripts\/probe\.sh ([a-z-]+) '/g)].map((m) => m[1])
+    expect(invoked.filter((p) => !probes.includes(p))).toEqual([])
+    for (const script of fs.readdirSync(path.join(skill, "scripts"))) {
+      expect(md).toContain(`bash <skillsDir>/ui-review/scripts/${script}`)
+    }
+    expect(md).not.toMatch(/(^|[\s`(])\.\/(probe|axe)\.sh/m)
+
+    // Relative links resolve inside the installed copy; each class page of the bar
+    // carries its rule source, the project override and the evidence.
+    const links = [...md.matchAll(/\]\(((?!https?:)[^)#\s]+)\)/g)].map((m) => m[1])
+    for (const link of links) expect(fs.existsSync(path.join(skill, link)), link).toBe(true)
+    const classes = links.filter((l) => l.startsWith("references/"))
+    expect(classes.length).toBeGreaterThanOrEqual(7)
+    for (const page of classes) {
+      const text = fs.readFileSync(path.join(skill, page), "utf8")
+      for (const heading of ["## Rule", "## Project override", "## Proof and evidence"]) expect(text, `${page}: ${heading}`).toContain(heading)
+    }
+  })
+})
+
+describe("ui-reviewer — the agent ships with ui-review", () => {
+  const AGENT = ".agents/agents/ui-reviewer.md"
+  const SKILL_DIR = ".agents/skills/ui-review/"
+  const touchesPair = (l: any) => l.path === AGENT || l.path.startsWith(SKILL_DIR)
+
+  /** doctor exits 0 and has nothing to say about the pair: both tracked, both current. */
+  const expectTracked = (dir: string) => {
+    const manifest = readManifest(dir)
+    expect(fileRole(manifest, AGENT)).toBe("managed")
+    expect(fileRole(manifest, `${SKILL_DIR}SKILL.md`)).toBe("managed")
+    const doctor = run(["doctor", "--json"], dir)
+    expect(doctor.code).toBe(0)
+    expect(JSON.parse(doctor.stdout).lines.filter(touchesPair)).toEqual([])
+  }
+
+  it("`init --providers claude` installs 5 agents, `ui-reviewer` among them, linked to `ui-review`", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+
+    const agents = fs.readdirSync(path.join(dir, ".agents", "agents")).filter((f) => f.endsWith(".md"))
+    expect(agents).toHaveLength(5)
+    expect(agents).toContain("ui-reviewer.md")
+    // Claude Code sees it through the agents symlink, with ui-review preloaded.
+    const agent = fs.readFileSync(path.join(dir, ".claude", "agents", "ui-reviewer.md"), "utf8")
+    expect(agentSkills(agent)).toEqual(["ui-review"])
+    expect(fs.existsSync(path.join(dir, SKILL_DIR, "SKILL.md"))).toBe(true)
+    expectTracked(dir)
+  })
+
+  it("`install-skill ui-review` installs `ui-reviewer.md` with it", () => {
+    const dir = freshDir()
+    const skills = path.join(dir, "kit", "skills")
+    const { code, stdout } = run(["install-skill", "ui-review", "--skills-dir", skills, "--json"], dir)
+    expect(code).toBe(0)
+    const agentFile = path.join(dir, "kit", "agents", "ui-reviewer.md")
+    expect(JSON.parse(stdout).lines).toEqual([
+      { path: `${skills}/ui-review`, status: "installed" },
+      { path: agentFile, status: "installed" }
+    ])
+    expect(fs.readdirSync(path.join(dir, "kit", "agents"))).toEqual(["ui-reviewer.md"])
+    expect(agentSkills(fs.readFileSync(agentFile, "utf8"))).toEqual(["ui-review"])
+  })
+
+  it.each([
+    ["upgrade --skill ui-review", ["upgrade", "--skill", "ui-review"]],
+    ["upgrade", ["upgrade"]]
+  ])("`%s` on an older install adds both, and doctor tracks them", (_label, args) => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+
+    // An install from before ui-review: neither the skill nor its agent on disk
+    // or in the manifest.
+    const manifestPath = path.join(dir, "brain", ".brain-manifest.json")
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+    manifest.files = manifest.files.filter((f: any) => !touchesPair(f))
+    manifest.packageVersion = "0.6.0"
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+    fs.rmSync(path.join(dir, SKILL_DIR), { recursive: true })
+    fs.rmSync(path.join(dir, AGENT))
+    expect(run(["doctor"], dir).code).toBe(1)
+
+    const { code, stdout } = run([...args, "--json"], dir)
+    expect(code).toBe(0)
+    const installed = JSON.parse(stdout).lines.filter((l: any) => touchesPair(l))
+    expect(installed.every((l: any) => l.status === "installed")).toBe(true)
+    expect(installed.map((l: any) => l.path)).toEqual(expect.arrayContaining([AGENT, `${SKILL_DIR}SKILL.md`]))
+    expect(fs.existsSync(path.join(dir, AGENT))).toBe(true)
+    expect(fs.existsSync(path.join(dir, SKILL_DIR, "scripts", "probe.sh"))).toBe(true)
+    expectTracked(dir)
+  })
+
+  it("the agent carries the ownership table, every method step and the output sections in order", () => {
+    const dir = freshDir()
+    const skills = path.join(dir, "skills")
+    expect(run(["install-skill", "ui-review", "--skills-dir", skills, "--json"], dir).code).toBe(0)
+    const md = fs.readFileSync(path.join(dir, "agents", "ui-reviewer.md"), "utf8")
+    const skillMd = fs.readFileSync(path.join(skills, "ui-review", "SKILL.md"), "utf8")
+    const inOrder = (text: string, needles: Array<string>) => {
+      const at = needles.map((n) => text.indexOf(n))
+      for (const [i, n] of needles.entries()) expect(at[i], n).toBeGreaterThanOrEqual(0)
+      expect(at).toEqual([...at].sort((a, b) => a - b))
+    }
+
+    // Frontmatter: a reviewer that cannot write and has no memory of its own.
+    const front = md.match(/^---\n([\s\S]*?)\n---\n/)?.[1] ?? ""
+    expect(front).toMatch(/^name: "?ui-reviewer"?$/m)
+    expect(front).toMatch(/^tools: Read, Grep, Glob, Bash$/m)
+    expect(front).not.toMatch(/^memory:/m)
+    expect(front).not.toMatch(/\b(Write|Edit)\b/)
+    expect(agentSkills(md)).toEqual(["ui-review"])
+    expect(front.match(/<example>/g)).toHaveLength(2)
+
+    // Ownership: the table the skill carries, verbatim, plus the shared lines.
+    const ownership = skillMd.split("## Ownership\n")[1]!.split("\n## ")[0]!
+    const rows = ownership.split("\n").filter((l) => l.startsWith("|"))
+    expect(rows).toHaveLength(6)
+    for (const row of rows) expect(md).toContain(row)
+    expect(md).toContain("If it changes while an animation or transition runs on the surface, it is motion; an instant re-layout with nothing animating is UI.")
+    expect(md).toContain("Target size belongs to the `ui-review` bar: 24 px by default, 44 or 48 px when the project says touch-first (`brain/chore/ui-review.md` → Project bar).")
+
+    // Role and moments: the three moments and the three verdicts.
+    inOrder(md, ["**Prototype review**", "**Live-surface review**", "**Anything else**"])
+    expect(md).toMatch(/UI pass\*\* of `adversarial-review`/)
+    for (const verdict of ["`proceed`", "`proceed with decisions`", "`iterate`"]) expect(md).toContain(verdict)
+
+    // Method: the guide-load line first, then steps 1-8 of SPEC §2 in order.
+    const guide = "Before the first `agent-browser` command, run `agent-browser skills get core` and follow it: it is the usage guide for the installed version."
+    inOrder(md, [
+      "## Method",
+      guide,
+      "### 1. Read the project",
+      "### 2. Inventory",
+      "### 3. Measure with the probes",
+      "### 4. Look",
+      "### 5. Device rendering",
+      "### 6. Evidence gate",
+      "### 7. Falsify before reporting",
+      "### 8. Degraded mode",
+      "## Output contract"
+    ])
+    expect(md).toContain("Read `brain/brain.config.json` (keys in `brain/AGENTS.md` → Project configuration). If it is absent, use the defaults listed there.")
+    expect(md).toContain("brain/chore/ui-review.md")
+    expect(md).toContain("appium driver list --installed")
+    // Every script it runs exists in the installed skill, and goes through bash.
+    const scripts = [...md.matchAll(/bash <skillsDir>\/ui-review\/scripts\/([a-z.-]+)/g)].map((m) => m[1]!)
+    expect(scripts.length).toBeGreaterThan(0)
+    for (const s of scripts) expect(fs.existsSync(path.join(skills, "ui-review", "scripts", s)), s).toBe(true)
+    expect(md).not.toMatch(/(^|[\s`(])\.\/(probe|axe)\.sh/m)
+
+    // Output: the SPEC §3 contract, sections in order, axe named on the Engines line.
+    const contract = md.split("## Output contract")[1]!.match(/```\n([\s\S]*?)\n```/)?.[1] ?? ""
+    inOrder(contract, [
+      "## Verdict: proceed | proceed with decisions | iterate",
+      "## Engines",
+      "## Prototype changes",
+      "## Decisions",
+      "## Mechanical fixes",
+      "## Not verified on device",
+      "## Checked and clean",
+      "## Not tested",
+      "## Open questions"
+    ])
+    expect(contract).toMatch(/^## Engines .*axe <source> \| not available/m)
+    expect(md).toContain("At most 120 lines. No scores, no praise, no prose sections.")
+
+    // Calibration: kept and rejected examples, the rejected ones naming the other owners.
+    inOrder(md, ["## Calibration", "**Kept**", "**Rejected**"])
+    const rejected = md.split("**Rejected**")[1]!
+    for (const owner of ["`ux-advisor`", "`design-engineer`"]) expect(rejected).toContain(owner)
   })
 })
 
