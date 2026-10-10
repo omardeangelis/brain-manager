@@ -29,6 +29,9 @@ import { VERSION } from "../version.js"
  * Additive and idempotent: providers already recorded in the manifest are kept,
  * an existing correct symlink is `up-to-date`, and a real dir/file where a
  * symlink belongs is a `conflict` (skipped unless `--force`), never clobbered.
+ * A holdout router (`CLAUDE.md`) identical to `AGENTS.md` is linked without
+ * `--force`; one with different content is a conflict even with `--force`,
+ * until it is reconciled into `AGENTS.md`.
  */
 
 const providers = Options.text("providers").pipe(
@@ -107,7 +110,10 @@ export const linkCommand = Command.make("link", { providers, force, dryRun, json
       yield* writeText(MANIFEST_PATH, yield* encodeManifest(next))
     }
 
-    const conflicts = result.lines.filter((l) => l.status === "conflict").length
+    const conflictLines = result.lines.filter((l) => l.status === "conflict")
+    // A router file with its own content needs a reconcile; --force never discards it.
+    const reconcile = conflictLines.filter((l) => l.note?.includes("reconcile") === true).length
+    const conflicts = conflictLines.length - reconcile
     const report = {
       command: opts.dryRun ? "link --dry-run" : "link",
       lines: result.lines,
@@ -118,7 +124,10 @@ export const linkCommand = Command.make("link", { providers, force, dryRun, json
           ? ["no brain manifest found — run `brain init` to scaffold and populate the skills"]
           : []),
         ...(opts.dryRun ? ["dry run — nothing was written"] : []),
-        ...(conflicts > 0 ? [`${conflicts} conflict(s) skipped — re-run with --force to overwrite`] : [])
+        ...(conflicts > 0 ? [`${conflicts} conflict(s) skipped — re-run with --force to overwrite`] : []),
+        ...(reconcile > 0
+          ? [`${reconcile} router file(s) differ from AGENTS.md — merge their sections into AGENTS.md (init-brain → references/router.md), then re-run \`brain link\`; --force never discards them`]
+          : [])
       ],
       ok: true
     }

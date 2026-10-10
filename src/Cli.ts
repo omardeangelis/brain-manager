@@ -1,4 +1,5 @@
 import { Command } from "@effect/cli"
+import { configCommand } from "./commands/config.js"
 import { doctorCommand } from "./commands/doctor.js"
 import { initCommand } from "./commands/init.js"
 import { installSkillCommand } from "./commands/install-skill.js"
@@ -19,7 +20,8 @@ const brain = Command.make("brain").pipe(
     linkCommand,
     upgradeCommand,
     doctorCommand,
-    scanCommand
+    scanCommand,
+    configCommand
   ])
 )
 

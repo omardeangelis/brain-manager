@@ -119,6 +119,70 @@ describe("planLink — conflicts", () => {
   })
 })
 
+describe("planLink — router states", () => {
+  const linkedSkills = {
+    ".agents/skills": { kind: "dir" as const },
+    ".claude/skills": { kind: "symlink" as const, target: "../.agents/skills" }
+  }
+
+  it("identical CLAUDE.md and AGENTS.md: links without --force (nothing is lost)", () => {
+    const actions = run([claude], {
+      ...linkedSkills,
+      "AGENTS.md": { kind: "file", content: "# Rules\n\n- run `npm test`\n" },
+      "CLAUDE.md": { kind: "file", content: "# Rules\r\n\r\n- run `npm test`\r\n" }
+    })
+    expect(at(actions, "CLAUDE.md")).toMatchObject({ _tag: "LinkRouter", target: "AGENTS.md" })
+  })
+
+  it("divergent CLAUDE.md: a conflict naming the CLAUDE.md-only headings and the similarity", () => {
+    const actions = run([claude], {
+      ...linkedSkills,
+      "AGENTS.md": { kind: "file", content: "# Rules\n\n## Gates\n\n`npm test`\n" },
+      "CLAUDE.md": { kind: "file", content: "# Rules\n\n## Gates\n\n`npm test`\n\n## Solid reactivity\n\n- no destructuring\n" }
+    })
+    const conflict = at(actions, "CLAUDE.md")
+    expect(conflict?._tag).toBe("Conflict")
+    expect(conflict && "why" in conflict ? conflict.why : "").toMatch(/CLAUDE\.md-only headings: "Solid reactivity"/)
+    expect(conflict && "why" in conflict ? conflict.why : "").toMatch(/similarity 0\.\d\d/)
+    expect(conflict && "why" in conflict ? conflict.why : "").toMatch(/reconcile into AGENTS\.md \(init-brain → router\.md\)/)
+  })
+
+  it("divergent CLAUDE.md with --force: still a conflict, never discarded", () => {
+    const actions = run(
+      [claude],
+      {
+        ...linkedSkills,
+        "AGENTS.md": { kind: "file", content: "# A" },
+        "CLAUDE.md": { kind: "file", content: "# B" }
+      },
+      { force: true }
+    )
+    const conflict = at(actions, "CLAUDE.md")
+    expect(conflict?._tag).toBe("Conflict")
+    expect(conflict && "why" in conflict ? conflict.why : "").toMatch(/refusing to discard differing CLAUDE\.md content/)
+  })
+
+  it("a CLAUDE.md symlink already pointing to AGENTS.md is up to date", () => {
+    const actions = run([claude], {
+      ...linkedSkills,
+      "AGENTS.md": { kind: "file", content: "# Rules" },
+      "CLAUDE.md": { kind: "symlink", target: "AGENTS.md", content: "# Rules" }
+    })
+    expect(at(actions, "CLAUDE.md")?._tag).toBe("AlreadyLinked")
+  })
+
+  it("reverse layout (AGENTS.md -> CLAUDE.md): promotes CLAUDE.md over the link, then links it back", () => {
+    const actions = run([claude], {
+      ...linkedSkills,
+      "AGENTS.md": { kind: "symlink", target: "CLAUDE.md", content: "# Rules" },
+      "CLAUDE.md": { kind: "file", content: "# Rules" }
+    })
+    expect(actions.find((a) => a._tag === "PromoteRouter")).toMatchObject({ from: "CLAUDE.md", to: "AGENTS.md" })
+    expect(at(actions, "CLAUDE.md")).toMatchObject({ _tag: "LinkRouter", target: "AGENTS.md" })
+    expect(has(actions, "MakeCanonicalRouter")).toBe(false)
+  })
+})
+
 describe("expectedLinks", () => {
   it("lists skills + router links for the selection, skipping router-native and non-skill tools", () => {
     expect(expectedLinks([claude])).toEqual([
