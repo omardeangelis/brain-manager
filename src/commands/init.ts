@@ -2,7 +2,7 @@ import { Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { ADVISORS_START, carryAdvisorsOver, hasAdvisorMarkers } from "../core/advisors.js"
 import { contentHash } from "../core/hash.js"
-import { MANIFEST_PATH, type Manifest, type ManifestEntry, type ManifestLink, decodeManifest, defaultRole, encodeManifest } from "../core/manifest.js"
+import { MANIFEST_PATH, type Manifest, type ManifestEntry, type ManifestLink, decodeManifest, defaultRole, encodeManifest, rewriteSkillsDir } from "../core/manifest.js"
 import { type ConfigKey, REVIEW_LOCATIONS, REVIEW_MODES } from "../core/config.js"
 import { CANONICAL_AGENTS_DIR, CANONICAL_SKILLS_DIR } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
@@ -21,8 +21,13 @@ import { VERSION } from "../version.js"
  * - skills: absent → installed; present-and-identical → up to date;
  *   present-but-different → ADOPTED into the manifest with their current hash
  *   (nothing overwritten — `brain upgrade` then syncs them cleanly).
- * - agent-browser: a differing pre-existing copy is treated as project-owned
- *   (seed) and never upgraded.
+ * - a re-run keeps what the previous manifest tracks as `managed` and the disk
+ *   still matches: the entry keeps its hash even when the bundled version
+ *   moved on (so `brain upgrade` updates the file), and such a file this
+ *   version no longer ships, inside a bundled skill, stays tracked (so
+ *   `brain upgrade` removes it).
+ * - agent-browser: a differing copy the previous manifest does not track as
+ *   `managed` is treated as project-owned (seed) and never upgraded.
  * - `--force`: overwrite differing process skills with the bundled version,
  *   carrying the `## Project Advisors` block over. brain/ is never forced.
  * - project config (`brain/brain.config.json`, seed): written from detection
@@ -92,6 +97,22 @@ export const initCommand = Command.make(
       const lines: Array<ReportLine> = []
       const entries: Array<ManifestEntry> = []
 
+      // --- previous manifest -------------------------------------------------
+      // Read before the skills: what an earlier install tracks as `managed` is
+      // carried forward instead of re-judged. Its paths are mapped to the target
+      // skills dir, so a manifest recorded under a legacy `.claude/skills`
+      // still matches.
+      const now = new Date().toISOString()
+      const previousRaw = yield* readTextOrNull(MANIFEST_PATH)
+      const previous = previousRaw === null
+        ? null
+        : yield* decodeManifest(previousRaw).pipe(Effect.option, Effect.map(Option.getOrNull))
+      const previousManaged = new Map(
+        (previous === null ? [] : rewriteSkillsDir(previous.files, previous.skillsDir, targetSkillsDir))
+          .filter((f) => f.role === "managed")
+          .map((f) => [f.path, f] as const)
+      )
+
       // --- brain/ scaffold: additive ------------------------------------
       for (const [relPath, asset] of assets.brain) {
         const onDisk = yield* readTextOrNull(relPath)
@@ -120,6 +141,24 @@ export const initCommand = Command.make(
           continue
         }
 
+        // The copy an earlier install wrote: previous `managed` entries in this
+        // folder whose file still matches the recorded hash.
+        const tracked = new Map<string, ManifestEntry>()
+        let trackedManaged = false
+        for (const [path, entry] of previousManaged) {
+          if (!path.startsWith(`${destDir}/`)) continue
+          trackedManaged = true
+          const content = yield* readTextOrNull(path)
+          if (content !== null && contentHash(content) === entry.hash) tracked.set(path, entry)
+        }
+        // Files of that copy this version no longer ships stay tracked, so
+        // `brain upgrade` can remove them; init itself never deletes.
+        const shipped = new Set([...files.keys()].map((rel) => `${targetSkillsDir}/${rel}`))
+        const carried = [...tracked.values()].filter((e) => !shipped.has(e.path))
+        const carriedNote = carried.length > 0
+          ? `${carried.length} file(s) no longer shipped stay tracked until \`brain upgrade\``
+          : null
+
         // Skill directory already exists: compare file by file.
         const disk = new Map<string, string | null>()
         for (const rel of files.keys()) {
@@ -133,12 +172,14 @@ export const initCommand = Command.make(
           for (const [rel, asset] of files) {
             entries.push({ path: `${targetSkillsDir}/${rel}`, role: "managed", hash: asset.hash })
           }
-          lines.push({ path: destDir, status: "up-to-date" })
+          entries.push(...carried)
+          lines.push({ path: destDir, status: "up-to-date", ...(carriedNote === null ? {} : { note: carriedNote }) })
           continue
         }
 
-        if (name === "agent-browser") {
+        if (name === "agent-browser" && !trackedManaged) {
           // Project-specific copy (e.g. real OAuth profiles): never clobber.
+          // A copy the previous manifest tracks as managed is ours, and is not.
           for (const [rel] of files) {
             const content = disk.get(rel)
             if (content !== null && content !== undefined) {
@@ -163,28 +204,35 @@ export const initCommand = Command.make(
             yield* writeText(`${targetSkillsDir}/${rel}`, content)
             entries.push({ path: `${targetSkillsDir}/${rel}`, role: "managed", hash: asset.hash })
           }
-          lines.push({ path: destDir, status: "updated", note: "overwritten (--force); review with git diff" })
+          entries.push(...carried)
+          lines.push({
+            path: destDir,
+            status: "updated",
+            note: ["overwritten (--force); review with git diff", ...(carriedNote === null ? [] : [carriedNote])].join("; ")
+          })
           continue
         }
 
-        // Adopt: record what is on disk; write only the missing files.
+        // Adopt: record what is on disk; write only the missing files. A file
+        // the previous manifest tracks as managed, still untouched, keeps its
+        // entry (same hash), so `brain upgrade` updates it like any older copy.
         for (const [rel, asset] of files) {
+          const dest = `${targetSkillsDir}/${rel}`
           const current = disk.get(rel)
           if (current === null || current === undefined) {
-            yield* writeText(`${targetSkillsDir}/${rel}`, asset.content)
-            entries.push({ path: `${targetSkillsDir}/${rel}`, role: "managed", hash: asset.hash })
+            yield* writeText(dest, asset.content)
+            entries.push({ path: dest, role: "managed", hash: asset.hash })
           } else {
-            entries.push({
-              path: `${targetSkillsDir}/${rel}`,
-              role: "managed",
-              hash: contentHash(current)
-            })
+            entries.push({ path: dest, role: "managed", hash: tracked.get(dest)?.hash ?? contentHash(current) })
           }
         }
+        entries.push(...carried)
         lines.push({
           path: destDir,
           status: "adopted",
-          note: "differs from bundled version — run `brain upgrade` to sync"
+          note: tracked.size > 0
+            ? ["tracked copy kept; run `brain upgrade`", ...(carriedNote === null ? [] : [carriedNote])].join(" — ")
+            : "differs from bundled version — run `brain upgrade` to sync"
         })
       }
 
@@ -235,17 +283,9 @@ export const initCommand = Command.make(
       if (projectConfig.entry !== null) entries.push(projectConfig.entry)
 
       // --- manifest --------------------------------------------------------
-      const now = new Date().toISOString()
-      const previous = yield* readTextOrNull(MANIFEST_PATH)
-      const createdAt = previous === null
-        ? now
-        : yield* decodeManifest(previous).pipe(
-            Effect.map((m) => m.createdAt),
-            Effect.orElseSucceed(() => now)
-          )
       const manifest: Manifest = {
         packageVersion: VERSION,
-        createdAt,
+        createdAt: previous?.createdAt ?? now,
         updatedAt: now,
         skillsDir: targetSkillsDir,
         files: entries,

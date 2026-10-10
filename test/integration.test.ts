@@ -534,7 +534,7 @@ describe("upgrade and doctor — a project-owned (seed) skill folder", () => {
     const dir = freshDir()
     expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
     const ab = ".agents/skills/agent-browser"
-    const newlyShipped = `${ab}/references/proxy-support.md`
+    const newlyShipped = `${ab}/LICENSE`
     // A project-owned copy recorded as seed, lacking a file this version ships,
     // plus a project file of its own.
     const manifestPath = path.join(dir, "brain", ".brain-manifest.json")
@@ -562,4 +562,156 @@ describe("upgrade and doctor — a project-owned (seed) skill folder", () => {
 
     expect(run(["doctor"], dir).code).toBe(0)
   })
+})
+
+describe("agent-browser — the upstream stub", () => {
+  const ab = ".agents/skills/agent-browser"
+  const bundled = (rel: string) => fs.readFileSync(path.join(REPO_ROOT, "assets", "skills", "agent-browser", rel), "utf8")
+  /** Every file under `root`, relative and sorted ([] when the folder is gone). */
+  const filesUnder = (root: string): Array<string> =>
+    fs.existsSync(root)
+      ? (fs.readdirSync(root, { recursive: true, withFileTypes: true }) as Array<fs.Dirent>)
+          .filter((e) => e.isFile())
+          .map((e) => path.relative(root, path.join(e.parentPath, e.name)))
+          .sort()
+      : []
+  const lineFor = (stdout: string, p: string) => JSON.parse(stdout).lines.find((l: any) => l.path === p)
+  const entryFor = (dir: string, p: string) => readManifest(dir).files.find((f: any) => f.path === p)
+
+  /** The long third-party copy an 0.6 install shipped (contents shortened). */
+  const OLD: Record<string, string> = {
+    "SKILL.md": "---\nname: agent-browser\ndescription: the 0.6 copy\n---\n\n# Agent Browser\n",
+    "references/commands.md": "# Command reference (0.6)\n",
+    "references/snapshot-refs.md": "# Snapshot refs (0.6)\n",
+    "templates/form-automation.sh": "#!/bin/bash\necho form\n"
+  }
+  const oldPaths = Object.keys(OLD).filter((rel) => rel !== "SKILL.md").map((rel) => `${ab}/${rel}`)
+
+  /**
+   * Turn a fresh install into an 0.6 one: the old agent-browser files on disk,
+   * tracked with `role` and matching hashes, no LICENSE; optionally with the
+   * manifest recorded under another skills dir (the legacy `.claude/skills`,
+   * which init links to `.agents/skills`).
+   */
+  const install06 = (dir: string, role: "managed" | "seed", skillsDir = ".agents/skills") => {
+    fs.rmSync(path.join(dir, ab), { recursive: true, force: true })
+    for (const [rel, content] of Object.entries(OLD)) write(dir, `${ab}/${rel}`, content)
+    const manifest = readManifest(dir)
+    manifest.packageVersion = "0.6.0"
+    manifest.files = [
+      ...manifest.files.filter((f: any) => !f.path.startsWith(`${ab}/`)),
+      ...Object.entries(OLD).map(([rel, content]) => ({ path: `${ab}/${rel}`, role, hash: contentHash(content) }))
+    ].map((f: any) => (f.path.startsWith(".agents/skills/") ? { ...f, path: `${skillsDir}${f.path.slice(".agents/skills".length)}` } : f))
+    manifest.skillsDir = skillsDir
+    fs.writeFileSync(path.join(dir, "brain", ".brain-manifest.json"), JSON.stringify(manifest, null, 2))
+  }
+
+  /** After the upgrade: only the stub and its license, the old folders gone, doctor green. */
+  const expectStubOnly = (dir: string) => {
+    expect(filesUnder(path.join(dir, ab))).toEqual(["LICENSE", "SKILL.md"])
+    expect(fs.readFileSync(path.join(dir, ab, "SKILL.md"), "utf8")).toBe(bundled("SKILL.md"))
+    expect(fs.readFileSync(path.join(dir, ab, "LICENSE"), "utf8")).toBe(bundled("LICENSE"))
+    expect(fs.existsSync(path.join(dir, ab, "references"))).toBe(false)
+    expect(fs.existsSync(path.join(dir, ab, "templates"))).toBe(false)
+    const entries = readManifest(dir).files.filter((f: any) => f.path.startsWith(`${ab}/`))
+    expect(entries.map((f: any) => [f.path, f.role])).toEqual([[`${ab}/LICENSE`, "managed"], [`${ab}/SKILL.md`, "managed"]])
+    expect(run(["doctor"], dir).code).toBe(0)
+  }
+
+  it("init on an empty project installs exactly the stub and its Apache-2.0 license", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    expect(filesUnder(path.join(dir, ab))).toEqual(["LICENSE", "SKILL.md"])
+
+    const skill = fs.readFileSync(path.join(dir, ab, "SKILL.md"), "utf8")
+    const frontmatter = skill.match(/^---\n([\s\S]*?)\n---\n/)?.[1] ?? ""
+    expect(frontmatter).toMatch(/^name: agent-browser$/m)
+    expect(frontmatter).not.toMatch(/^hidden:/m)
+    const allowed = frontmatter.match(/^allowed-tools:(.*)$/m)?.[1] ?? ""
+    expect(allowed).toContain("Bash(agent-browser:*)")
+    expect(allowed).not.toContain("npx")
+    // The Apache-2.0 §4(b) notice: upstream, commit, license and both changes.
+    const notice = skill.slice(skill.indexOf("---\n", 4)).match(/<!--([\s\S]*?)-->/)?.[1] ?? ""
+    for (const fact of ["vercel-labs/agent-browser", "skills/agent-browser/SKILL.md", "021d9255", "2026-08-24", "Apache-2.0", "hidden: true", "Bash(npx agent-browser:*)"]) {
+      expect(notice).toContain(fact)
+    }
+    expect(fs.readFileSync(path.join(dir, ab, "LICENSE"), "utf8")).toMatch(/Apache License\s+Version 2\.0, January 2004/)
+  })
+
+  it("upgrade from a 0.6 install replaces the long agent-browser copy with the stub and removes its references", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    install06(dir, "managed")
+
+    const up = run(["upgrade", "--json"], dir)
+    expect(up.code).toBe(0)
+    expect(lineFor(up.stdout, `${ab}/SKILL.md`)?.status).toBe("updated")
+    expect(lineFor(up.stdout, `${ab}/LICENSE`)?.status).toBe("installed")
+    for (const p of oldPaths) expect(lineFor(up.stdout, p)?.status).toBe("removed")
+    expect(lineFor(up.stdout, `${ab}/references/`)?.status).toBe("removed")
+    expect(lineFor(up.stdout, `${ab}/templates/`)?.status).toBe("removed")
+    expectStubOnly(dir)
+  })
+
+  it("keeps and reports an edited old reference, even with --force", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    install06(dir, "managed")
+    const edited = `${ab}/references/commands.md`
+    fs.appendFileSync(path.join(dir, edited), "\nour own notes\n")
+
+    const up = run(["upgrade", "--force", "--json"], dir)
+    expect(up.code).toBe(0)
+    expect(lineFor(up.stdout, edited)).toMatchObject({ status: "orphan", note: expect.stringMatching(/locally modified, left on disk/) })
+    expect(fs.readFileSync(path.join(dir, edited), "utf8")).toContain("our own notes")
+    expect(entryFor(dir, edited)).toBeUndefined()
+    expect(filesUnder(path.join(dir, ab))).toEqual(["LICENSE", "SKILL.md", path.join("references", "commands.md")])
+    expect(fs.readFileSync(path.join(dir, ab, "SKILL.md"), "utf8")).toBe(bundled("SKILL.md"))
+  })
+
+  it("leaves a project-owned (seed) 0.6 copy alone: nothing changes, no LICENSE, doctor exits 0", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    install06(dir, "seed")
+
+    const up = run(["upgrade", "--json"], dir)
+    expect(up.code).toBe(0)
+    expect(lineFor(up.stdout, `${ab}/LICENSE`)).toMatchObject({ status: "kept", note: expect.stringMatching(/project-owned skill/) })
+    expect(filesUnder(path.join(dir, ab))).toEqual(Object.keys(OLD).sort())
+    for (const [rel, content] of Object.entries(OLD)) expect(fs.readFileSync(path.join(dir, ab, rel), "utf8")).toBe(content)
+    expect(entryFor(dir, `${ab}/LICENSE`)).toBeUndefined()
+    expect(run(["doctor"], dir).code).toBe(0)
+
+    // A re-run of init still treats the untracked-as-managed copy as project-owned.
+    const again = run(["init", "--providers", "claude", "--json"], dir)
+    expect(lineFor(again.stdout, ab)).toMatchObject({ status: "kept", note: expect.stringMatching(/project-specific copy/) })
+    expect(entryFor(dir, `${ab}/SKILL.md`)?.role).toBe("seed")
+    expect(fs.existsSync(path.join(dir, ab, "LICENSE"))).toBe(false)
+    expect(run(["doctor"], dir).code).toBe(0)
+  })
+
+  it.each([".agents/skills", ".claude/skills"])(
+    "re-running init on a 0.6 install (manifest under %s) keeps the tracked copy managed, and upgrade then installs the stub",
+    (manifestSkillsDir) => {
+      const dir = freshDir()
+      expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+      install06(dir, "managed", manifestSkillsDir)
+
+      const again = run(["init", "--providers", "claude", "--json"], dir)
+      expect(again.code).toBe(0)
+      expect(lineFor(again.stdout, ab)).toMatchObject({ status: "adopted", note: expect.stringMatching(/tracked copy kept; run `brain upgrade`/) })
+      const manifest = readManifest(dir)
+      expect(manifest.skillsDir).toBe(".agents/skills")
+      for (const [rel, content] of Object.entries(OLD)) {
+        expect(entryFor(dir, `${ab}/${rel}`)).toEqual({ path: `${ab}/${rel}`, role: "managed", hash: contentHash(content) })
+        expect(fs.readFileSync(path.join(dir, ab, rel), "utf8")).toBe(content)
+      }
+
+      const up = run(["upgrade", "--json"], dir)
+      expect(up.code).toBe(0)
+      expect(lineFor(up.stdout, `${ab}/SKILL.md`)?.status).toBe("updated")
+      for (const p of oldPaths) expect(lineFor(up.stdout, p)?.status).toBe("removed")
+      expectStubOnly(dir)
+    }
+  )
 })
