@@ -62,13 +62,13 @@ The suite skills are handled by the CLI (`init`/`upgrade`). For **other** skills
 
 ## 6. Legacy agents dir
 
-A pre-CLI install keeps its agents as real files in `.claude/agents/`, where the canonical layout wants a symlink to `.agents/agents/` (the shipped four are already installed there). Sort every file in it, with the user:
+A pre-CLI install keeps its agents as real files in `.claude/agents/`, where the canonical layout wants a symlink to `.agents/agents/` (the shipped five are already installed there). Sort every file in it, with the user:
 
 | The file is | Action |
 |---|---|
 | a shipped agent, identical to `.agents/agents/<name>.md` | delete it |
 | a shipped agent with local edits | show the diff. Route its project facts first (personas → [project-context.md](project-context.md), risk surfaces and conventions → [router.md](router.md)); then delete it: the shipped copy wins, and the facts now live in project files it reads |
-| a legacy twin ([advisor-detection.md](advisor-detection.md) alias table) | route its facts, then replace it per advisor-detection |
+| a legacy twin ([advisor-detection.md](advisor-detection.md): the alias table, or a UI-review agent) | route its facts, then replace it per advisor-detection |
 | a project-only agent | `git mv` it into `.agents/agents/` |
 
 When the dir is empty, link it: `$BRAIN link --providers <ids> --force` (only an empty dir is replaced, so nothing is lost). Then `$BRAIN upgrade --force` syncs the adopted suite files to the bundled versions, once the user has agreed that the project facts now live in the config, the router and `brain/`.
@@ -81,12 +81,13 @@ Agents with `memory: project` (Claude Code) keep notes under `.claude/agent-memo
 
 - **`adversarial-verifier`, `review-classifier`:** keep `memory: project`. Their notes are lessons about how to check, and they keep accruing.
   - Leave `.claude/agent-memory/adversarial-verifier/` untouched.
-  - When the user replaces the legacy `review-classifier-router` twin, rename its folder to the shipped name: `git mv .claude/agent-memory/review-classifier-router .claude/agent-memory/review-classifier` (merge by hand if both exist).
-- **`ux-advisor`, `design-engineer`:** no memory. Fold durable notes into brain pages the user can review, show them first, then retire the old folder with confirmation:
+  - When the user replaces a legacy twin of `review-classifier` ([advisor-detection.md](advisor-detection.md) alias table), rename its folder to the shipped name: `git mv .claude/agent-memory/<legacy-name> .claude/agent-memory/review-classifier` (merge by hand if both exist).
+- **`ux-advisor`, `ui-reviewer`, `design-engineer`:** no memory. Fold durable notes into brain pages the user can review, show them first, then retire the old folder with confirmation:
   - personas → `brain/personas.md`;
   - risk surfaces and conventions → the root `AGENTS.md`;
   - motion decisions → `brain/chore/motion.md`;
-  - component mechanics a UX twin learned (a primitive that swallows keys, a checkbox that toggles twice) → the **Component traps** part of `brain/chore/ux-review.md`; findings the project rejected → its **Suppressed findings**.
+  - UX component traps a twin learned (a primitive that swallows keys, a checkbox that toggles twice) → the **Component traps** part of `brain/chore/ux-review.md`; UX findings the project rejected → its **Suppressed findings**;
+  - UI component traps (a container that clips the focus ring, a row whose hit area is only its label) → the **Component traps** part of `brain/chore/ui-review.md`; UI findings the project rejected → its **Suppressed findings**. Leave its **Project bar** to the user ([advisor-detection.md](advisor-detection.md) → UI-review agents).
 
 Skip notes that only restate code, file paths or history: they are not durable knowledge.
 

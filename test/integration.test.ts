@@ -1090,3 +1090,143 @@ describe("agent-browser — the upstream stub", () => {
     }
   )
 })
+
+describe("init-brain — the shipped lists, the UI-review twins and the verify step", () => {
+  /** The playbook exactly as `brain onboard --json` serves it: the SKILL.md body and every reference. */
+  const playbook = (): { body: string; refs: Record<string, string> } => {
+    const { code, stdout } = run(["onboard", "--json"], freshDir())
+    expect(code).toBe(0)
+    const out = JSON.parse(stdout)
+    return { body: out.playbook, refs: out.references }
+  }
+  const bundledSkills = fs.readdirSync(path.join(REPO_ROOT, "assets", "skills")).sort()
+  const bundledAgents = fs
+    .readdirSync(path.join(REPO_ROOT, "assets", "agents"))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => f.slice(0, -".md".length))
+    .sort()
+  const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"]
+  const lineOf = (text: string, prefix: string) => text.split("\n").find((l) => l.startsWith(prefix)) ?? ""
+  const section = (text: string, heading: string) => (text.split(heading)[1] ?? "").split("\n## ")[0]!
+  const paragraph = (text: string, start: string) => start + (text.split(start)[1] ?? "").split("\n\n")[0]!
+  const inOrder = (text: string, needles: Array<string>) => {
+    const at = needles.map((n) => text.indexOf(n))
+    for (const [i, n] of needles.entries()) expect(at[i], n).toBeGreaterThanOrEqual(0)
+    expect(at).toEqual([...at].sort((a, b) => a - b))
+  }
+
+  it("verify reports agent-browser with its version and Appium as optional, and installs neither", () => {
+    const verify = playbook().refs["references/verify.md"]!
+    const tools = section(verify, "## 3. Browser and device tools")
+    const code = [...tools.matchAll(/```bash\n([\s\S]*?)\n```/g)].map((m) => m[1]!).join("\n")
+
+    // agent-browser: needed for the reviews, reported with the installed version, guide from the CLI.
+    expect(code).toContain("command -v agent-browser")
+    expect(code).toContain("agent-browser --version")
+    for (const needle of ["`ux-advisor`", "`ui-reviewer`", "UI pass", "0.27.1", "`DEGRADED`", "agent-browser skills get core"]) {
+      expect(tools, needle).toContain(needle)
+    }
+    // Appium with the XCUITest driver: optional, it adds Mobile Safari for the device classes.
+    expect(code).toContain("command -v appium")
+    expect(code).toContain("appium driver list --installed")
+    expect(code).toContain("xcuitest")
+    for (const needle of ["optional", "Mobile Safari", "not verified on device"]) expect(tools, needle).toContain(needle)
+    // Neither is installed, and the device route is never tried to find out.
+    expect(tools).toMatch(/never install/i)
+    expect(code).not.toMatch(/^\s*(npm|npx|pnpm|yarn|brew)\s|appium driver install|-p ios/m)
+    // The final report names both, with the version.
+    const report = lineOf(section(verify, "## 6. Print the report"), "- **Tools:**")
+    for (const needle of ["`agent-browser`", "version", "Appium", "XCUITest", "optional"]) expect(report, needle).toContain(needle)
+  })
+
+  it("every list and count of shipped skills and agents matches assets/", () => {
+    // init installs every bundled skill and agent: 12 and 5.
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    expect(fs.readdirSync(path.join(dir, ".agents", "skills")).sort()).toEqual(bundledSkills)
+    expect(bundledSkills).toHaveLength(12)
+    expect(bundledSkills).toContain("ui-review")
+    const installedAgents = fs.readdirSync(path.join(dir, ".agents", "agents")).filter((f) => f.endsWith(".md")).sort()
+    expect(installedAgents).toEqual(bundledAgents.map((a) => `${a}.md`))
+    expect(bundledAgents).toHaveLength(5)
+    expect(bundledAgents).toContain("ui-reviewer")
+
+    const { body, refs } = playbook()
+    const detection = refs["references/advisor-detection.md"]!
+    const verify = refs["references/verify.md"]!
+    const count = WORDS[bundledAgents.length]!
+    const Count = count[0]!.toUpperCase() + count.slice(1)
+
+    // Every list of the shipped advisors names each of them.
+    const lists: Record<string, string> = {
+      "SKILL.md → What a run produces": lineOf(body, `- ${Count} shipped **advisor subagents**`),
+      "SKILL.md → Step 3": paragraph(body, `The ${count} shipped advisors`),
+      "SKILL.md → Never do": lineOf(body, "- Hardcode *project-specific* advisor names"),
+      "advisor-detection → intro": paragraph(detection, `The bundled skills ship with ${count} default advisors`),
+      "advisor-detection → exclusion": lineOf(detection, "**Exclude the shipped advisors**"),
+      "advisor-detection → carried-over blocks": lineOf(detection, "**Blocks carried over from an older install.**"),
+      "verify → report": lineOf(verify, "- **Agents:**"),
+      "providers → Agents": lineOf(refs["references/providers.md"]!, "- **Agents** → ")
+    }
+    for (const [where, text] of Object.entries(lists)) {
+      for (const agent of bundledAgents) expect(text, `${where}: ${agent}`).toContain(`\`${agent}\``)
+    }
+    expect(lists["advisor-detection → exclusion"]).toMatch(new RegExp(`beyond\\*? these ${count}\\b`))
+    for (const [name, text] of Object.entries({ "SKILL.md": body, ...refs })) {
+      expect(text, name).not.toMatch(/shipped four|four shipped|these four|four default|four advisor/i)
+    }
+
+    // Every bundled skill is named where the run's output is listed; the token grep covers all but the third-party stub.
+    const produces = section(body, "## What a run produces")
+    for (const skill of bundledSkills) expect(produces, skill).toMatch(new RegExp(`\\b${skill}\\b`))
+    expect(produces).toContain("agent-browser skills get core")
+    const grepped = verify.match(/"\$SKILLS_DIR"\/\{([^}]*)\}/)?.[1]?.split(",").sort()
+    expect(grepped).toEqual(bundledSkills.filter((s) => s !== "agent-browser"))
+  })
+
+  it("a project's own UI-review agents are twins of ui-reviewer, and UX, UI and motion knowledge go to three pages", () => {
+    const { body, refs } = playbook()
+    const detection = refs["references/advisor-detection.md"]!
+    const migration = refs["references/migration.md"]!
+
+    // UI-review or visual-QA agents → twins of ui-reviewer, their knowledge → brain/chore/ui-review.md, the Project bar only offered.
+    const ui = paragraph(detection, "**UI-review agents.**")
+    for (const needle of ["`ui-reviewer`", "visual-QA", "`brain/chore/ui-review.md`", "**Component traps**", "**Kept examples**", "**Suppressed findings**", "never fill it in"]) {
+      expect(ui, needle).toContain(needle)
+    }
+    expect(ui).toMatch(/Project bar[^.]*offer/)
+    inOrder(detection, ["**Recognize legacy twins.**", "**UI-review agents.**", "For each twin:"])
+
+    // The ux/design bucket splits: UX → ux-review.md, static UI → ui-review.md, motion → motion.md.
+    inOrder(lineOf(detection, "- **ux/design**"), ["`brain/chore/ux-review.md`", "`brain/chore/ui-review.md`", "`brain/chore/motion.md`"])
+    expect(lineOf(detection, "- **ux/design**")).toContain(
+      "UX → `ux-advisor` · static UI of the rendered page → `ui-reviewer` (bar and probes: the `ui-review` skill) · motion and interaction craft → `design-engineer` (`design-engineering`)"
+    )
+
+    // Agent memory: UI component traps → ui-review.md, UX ones → ux-review.md.
+    const memory = section(migration, "## 7. Agent memory")
+    expect(lineOf(memory, "  - UI component traps")).toContain("`brain/chore/ui-review.md`")
+    expect(lineOf(memory, "  - UX component traps")).toContain("`brain/chore/ux-review.md`")
+
+    // Legacy agent names appear only in the alias table.
+    const aliasRows = detection.split("\n").filter((l) => /^\| `[^`]+` \| `[^`]+` \|$/.test(l))
+    const legacy = aliasRows.map((l) => l.split("`")[1]!)
+    expect(legacy.length).toBeGreaterThan(0)
+    const outsideTable = [body, ...Object.values(refs).map((t) => t.split("\n").filter((l) => !aliasRows.includes(l)).join("\n"))]
+    for (const name of legacy) for (const text of outsideTable) expect(text, name).not.toContain(name)
+  })
+
+  it("upgrade explains the orphan rule, the agent-browser stub, a project-owned copy and a re-run of init", () => {
+    const upgrade = playbook().refs["references/upgrade.md"]!
+    // Preview first; what `removed` and "left on disk" mean.
+    inOrder(upgrade, ["$BRAIN upgrade --dry-run", "**Files this version no longer ships.**"])
+    const orphans = paragraph(upgrade, "**Files this version no longer ships.**")
+    inOrder(orphans, ["`would remove`", "`removed`", "`orphan` with \"left on disk\"", "`orphan` with \"missing on disk\""])
+    for (const needle of ["`managed`", "`--force`", "`--skill`", "`$BRAIN doctor`"]) expect(orphans, needle).toContain(needle)
+    // The stub, the version-matched guide, a project-owned copy, and a re-run of init.
+    const stub = paragraph(upgrade, "**The `agent-browser` skill.**")
+    for (const needle of ["stub", "`LICENSE`", "agent-browser skills get core", "`seed`", "`kept`", "`adopted`", "managed"]) {
+      expect(stub, needle).toContain(needle)
+    }
+  })
+})
