@@ -159,6 +159,11 @@ Each rule cites the evidence that forces it (A = internal pattern, B = external 
 | 11 | Calibrate with examples (one kept, one rejected finding) and a project suppression list | B2, B9 |
 | 12 | The acceptance contract lives in `SPEC.md` only. `FLOW.md` becomes a map that cites AC ids, so review findings cannot silently become scope | A3 |
 
+Revised by SPEC Q10 (2026-10-06): the agent reviews UX only.
+- Rule 3 keeps the forced states and mocked outcomes, and drops the UI half (viewports for layout, themes, axe). Those go to `design-engineer`.
+- Rule 4 applies at task level: focus after each action, and announcements.
+- Rule 5 reads its states from the code (an outcome catalogue) as well as from the screen, and adds leaving and interrupting.
+
 ## D — How "better" is measured
 
 Opinion is what got the current agent shipped, so the redesign is accepted on a replay benchmark (PLAN T17), not on reading its prompt.
@@ -195,5 +200,7 @@ Opinion is what got the current agent shipped, so the redesign is accepted on a 
   - at most about 120 lines and at most 3 open questions;
   - zero runtime claims without evidence.
 - **On failure,** iterate the agent (calibration examples first), never the targets, and log each iteration in the plan.
+- **Revision of 2026-10-06 (maintainer, SPEC Q10).** The agent reviews UX only, so recall is measured on the UX defects of the frozen ground truth (`benchmark/ux-split.md`: 27 of 43). "Recall at least twice the baseline's" becomes "UX recall at least the baseline's in every case", and the 40% floor applies to UX recall. The other criteria are unchanged.
+  - **Why the bar changed:** the old `FLOW.md` is not a weak baseline on UX coverage (14 of 27). The maintainer's objection to it was its form: length, open questions without defaults, and no effect on the product.
 
 n = 3 and a single judge make this a floor check, not proof. It still beats the status quo, where nothing measured whether `FLOW.md` changed the product.

@@ -1,7 +1,7 @@
 ---
 domain: compat
 type: spec
-status: approved
+status: implemented
 links:
   - "[[specs/project-config-and-flow-modes/PLAN]]"
   - "[[specs/project-config-and-flow-modes/REFERENCE-sevedemo]]"
@@ -12,7 +12,7 @@ links:
   - "[[src/commands/init.ts]]"
   - "[[skills/init-brain/SKILL.md]]"
 created: 2026-10-05
-updated: 2026-10-05
+updated: 2026-10-06
 ---
 
 # Project-aware install: config, review modes, prototype-gated UX review, router detection
@@ -278,19 +278,21 @@ External studies agree: ungrounded LLM critique has low precision, and structure
 
 > `ux-advisor` reviews an approved, rendered UI for the people who will use it, and returns the decisions the spec must make, each backed by evidence it observed.
 
-It is a reviewer, not a flow author or a spec writer. It answers four questions:
+It is a reviewer, not a flow author or a spec writer, and it reviews **UX only** (Q10, 2026-10-06). It answers five questions:
 
-1. **Can everyone operate it?** Accessibility.
-2. **What did the prototype not show?** User-observable states, entry points and exits.
-3. **Who does it fail?** Persona situations, cross-persona conflicts and dependencies.
-4. **What is already broken around it?** The current code the winner will replace or sit next to. This kept the most value in the old output (RESEARCH A, keeper 1).
+1. **Can every person finish the task?** Entry, steps, exits and dead ends, with the mouse, the keyboard and a screen reader: where focus goes after each action, and what is announced.
+2. **What does every outcome leave them with?** Every outcome the real system can return, not only the ones the prototype shows.
+3. **What happens when they leave or interrupt?** Unsaved input, navigating away, closing or reopening mid-way, acting again while something is in flight.
+4. **Does every label and message say what will happen?**
+5. **Who does it fail, and what is already broken around it?** Persona situations and hand-offs; the current code the winner will replace or sit next to. The latter kept the most value in the old output (RESEARCH A, keeper 1).
 
 It does **not** own:
 
 | Concern | Owner |
 |---|---|
-| Motion values | `design-engineer` / `design-engineering` |
-| Visual language, brand | the project's design skill, if any |
+| UI: layout, placement, responsive widths, typography, color | `design-engineer`; the project's design skill, if any |
+| Motion: values, and how transitions look | `design-engineer` / `design-engineering` |
+| Visual accessibility: contrast, focus-ring visibility, target sizes, accessible-name markup, browser- and device-specific rendering | `design-engineer`; axe in the review pipeline |
 | Engineering edge cases: concurrency, retries, caching, data consistency | `create-spec` (grill), `create-plan` (planner), the verifier |
 | Writing `SPEC.md` / `FLOW.md` | the orchestrator (`create-spec`) |
 
@@ -316,14 +318,14 @@ Verdicts:
 - touches only the winner's surface;
 - keeps its direction (same axis, same motion line unless motion is the finding);
 - runs on the prototype's fake state machine;
-- states how to check it on screen. Example: the × moves out of the accordion trigger and gets a 44×44 target.
+- states how to check it on screen. Example: Cancel on step 2 returns to the list instead of closing the wizard.
 
 **Anything bigger is not an `iterate`.** That covers a new direction, a new screen, or a change that needs the backend contract. It stays a P0 decision for the spec, and the user can still ask for a `riff` themselves.
 
 **The loop.**
 1. The `prototype` orchestrator shows the proposed changes; the user accepts all, some or none.
 2. The orchestrator applies the accepted ones to the winner, under the prototype's Hard Rules (isolated surface, never production code).
-3. `ux-advisor` re-reviews the changed items, plus a regression pass on the keyboard walk and the state matrix.
+3. `ux-advisor` re-reviews the changed items, plus a regression pass on the task walk, the outcomes and the leave-and-interrupt pass.
 4. At most 2 rounds, then `create-spec` regardless. The changes it made carry into the spec as decisions already taken, with their exact values, like the winner's own.
 
 The agent itself never edits the prototype. A reviewer that fixes its own findings loses the independence that makes its re-review worth anything, the same rule `adversarial-review` follows.
@@ -332,46 +334,41 @@ The agent itself never edits the prototype. A reviewer that fixes its own findin
 
 1. **Orient,** briefly:
    - the config, then `<personas>`;
-   - the touched domain's page;
-   - the root router for accessibility and i18n conventions;
+   - the touched domain's page and contract;
+   - the root router for copy, i18n and accessibility conventions;
    - `brain/chore/ux-review.md` when present (§7.6);
-   - the source of every component the winner uses, including the headless library's primitives (keyboard delegates, focus scopes, portals). That layer is where the reference project's shipped defects came from (RESEARCH A2).
-2. **Mechanical pass with tools** (`agent-browser`):
-   - **Screenshots:** a screenshot of every viewport, theme and forced state the review relies on. The agent opens them and looks: layout, truncation, contrast, hierarchy, jumps between states. The accessibility tree alone does not show what the user sees (Q3, 2026-10-05).
-   - **Viewports:** 375 and 1280, plus 320 for reflow.
-   - **Themes and motion:** every shipped theme, and reduced motion.
-   - **axe:** `agent-browser a11y` when the CLI has it, else axe-core injected with `eval`. Violations become **one bundled list of mechanical fixes**, not prose. Its `incomplete` items go to manual checks.
-3. **Keyboard walkthrough of each primary task:**
-   - Tab and Shift+Tab, logging role, name and visible focus at each step.
-   - Dialogs and menus checked against the WAI-ARIA APG patterns: focus moves in, Tab wraps, Escape closes, focus returns to the trigger.
-   - Live regions update after async actions.
-   - Screen-reader announcements are listed as **manual checks**, never claimed.
-4. **State matrix, by forcing states:**
-   - For each data-bound region, drive empty, loading, error, partial, long content, no permission and offline. Use `network route --body` / `--abort` and `set offline`.
-   - Each cell reads present / missing / not reachable in the prototype.
-   - A missing cell becomes a decision. Only user-observable states belong here.
-5. **Persona situations:**
+   - the code behind the winner (state machine, fixtures, strings) and the operation it will call: API client, error types, handlers, the closest shipped flow on the same endpoint. Component sources only where they decide focus or announcements.
+2. **Outcome catalogue, from the code, before the browser.** Every outcome the real operation can return: success, partial, uncertain (timeout after send), each error the client tells apart (validation, conflict, gone, no permission, session expired, rate limit, cap, already done), slow; plus empty, loading, failed, no permission and offline for loaded data. Each row reads present / missing / not reachable in the prototype, with what the person sees and can do next. This is where the old, text-only agent did better than iteration 1 of the redesign: the defects that shipped sat in outcomes the success-only prototypes could not show (PLAN T17).
+3. **Task walk in the browser** (`agent-browser`), with the mouse and with the keyboard only:
+   - at every step, what the person sees (screenshots opened and inspected), where focus is, and what a live region says;
+   - after each action: does the person know it worked, and can they go on, undo or leave;
+   - dialogs and menus against the WAI-ARIA APG patterns at task level;
+   - each outcome the prototype can produce, forced through its harness or `network route` / `set offline`;
+   - screen-reader speech listed as **manual checks**, never claimed.
+4. **Leave and interrupt** wherever input or an operation is in flight: Escape, click outside, close, back, route change, reload; acting again, closing while it saves, reopening inside the close transition or a timed message, a resize that switches the layout mid-save. Input lost without a question, an outcome never seen, a surface that sticks or an action that runs twice is a finding.
+5. **Read every word** in every state reached: actions say what and how many, status lines appear only when they tell the person something, messages are true in their state, errors agree with the controls next to them. The default is the replacement copy.
+6. **Persona situations:**
    - From `<personas>`, derive 2–4 concrete situations: segment × entry point × permissions × device × data volume × prior knowledge.
    - Walk the primary task in each, with the four cognitive-walkthrough questions, keeping the full path.
    - Report only where situations differ, plus hand-offs where one persona's action creates a state another must see.
    - No role-play: simulated users are too competent (RESEARCH B5).
-6. **Around the surface.** What is already broken in the code the winner replaces or sits next to:
+7. **Around the surface.** What is already broken in the code the winner replaces or sits next to:
    - dead links;
    - silent data loss;
    - existing controls that strand users;
    - data assumptions the real records contradict.
-7. **Evidence gate.**
+8. **Evidence gate.**
    - Every finding carries:
      - a location: route plus accessibility-tree ref or selector, or `file:line`;
-     - the observed evidence: trace step, screenshot, axe rule, matrix cell or code line;
+     - the observed evidence: trace step, snapshot, screenshot, outcome row or code line;
      - repro steps.
    - No evidence → open question, never a finding.
-8. **Decide, rank, cap.**
+9. **Decide, rank, cap.**
    - At most **6 product decisions**, P0–P2, each with a one-line reason (frequency × impact). Repeats merge into one with a list of locations.
    - Each decision reads: decision needed → recommended default → acceptance criterion → evidence.
    - At most **3 open questions**, only for facts it cannot observe (business, data, legal), each with a default.
    - "No blocking issues" is a valid result. No heuristic health scores.
-9. **Degraded mode.** With no browser available (a tool without `agent-browser`, a route that does not serve), the review opens with a `DEGRADED` banner. It reports only code-grounded findings and questions, and never claims runtime behavior.
+10. **Degraded mode.** With no browser available (a tool without `agent-browser`, a route that does not serve), the review opens with a `DEGRADED` banner. It reports only code-grounded findings and questions, and never claims runtime behavior.
 
 ### 7.4 Output contract
 
@@ -381,12 +378,13 @@ The agent **returns** the review to its caller; it writes no files. About 120 li
 ## Verdict: proceed | proceed with decisions | iterate — <one line>
 ## Prototype changes    (only with iterate; ≤ 3, each: finding # → change → how to check it on screen)
 ## Decisions            (≤ 6, ranked)  | # | P | Decision needed | Recommended default | Acceptance criterion | Evidence |
-## Mechanical fixes     (axe + keyboard, bundled; one line each with location)
-## State matrix         | Region | empty | loading | error | partial | long | no permission | offline |
+## Task accessibility fixes   (keyboard and announcements, bundled; one line each with location)
+## Outcomes and states  | Action or region | Outcome or state | In the prototype | What the person sees → can do next | Evidence |
+## Leaving and interrupting   | Where | What the person does | What happens to input, operation, outcome | Evidence |
 ## Persona situations   (only where they differ) + dependencies and hand-offs
 ## Already broken around the surface
 ## Where the spec will be misread   (≤ 5 rows)
-## Manual checks still needed       (screen reader, real device, with exact steps)
+## Manual checks still needed       (screen reader, with exact steps)
 ## Open questions       (≤ 3, each with a default)
 ```
 
@@ -394,14 +392,14 @@ The agent **returns** the review to its caller; it writes no files. About 120 li
 
 - **`SPEC.md` is the only acceptance contract.** `create-spec` folds:
   - each decision into an acceptance criterion;
-  - the mechanical fixes into one criterion;
+  - the task-accessibility fixes into one criterion;
   - the open questions into the spec's Open questions.
 - **`FLOW.md` v2 is a map, not a second contract.** `create-spec` writes it from the review, in at most about 150 lines, using a template that moves from the agent to `create-spec/references/flow-map.md`. Sections:
   - Goal
   - Persona situations
   - Entry points
   - Happy path (≤ 10 steps)
-  - States (the matrix, replacing v1's Error paths and Edge cases)
+  - States (outcomes, states and interruptions, replacing v1's Error paths and Edge cases)
   - Accessibility
   - Persona dependencies
 
@@ -420,7 +418,7 @@ The agent **returns** the review to its caller; it writes no files. About 120 li
 - **model:** `inherit`.
 - **memory:** none (Q5).
 - **Calibration.**
-  - The agent body carries one kept finding and one rejected finding as few-shot examples, both generic, with no project names (RESEARCH B2).
+  - The agent body carries kept and rejected findings as few-shot examples (two of each since Q10: an interruption and an outcome read from the code; a guess and a UI finding out of scope), all generic, with no project names (RESEARCH B2).
   - The project can add its own in **`brain/chore/ux-review.md`**: an optional, project-owned page beside `motion.md`, with three parts:
     - **Component traps** of its stack, for example a library primitive that swallows keys;
     - **Kept examples**;
@@ -430,7 +428,7 @@ The agent **returns** the review to its caller; it writes no files. About 120 li
 
 ### 7.7 Acceptance of the redesign
 
-The redesign is accepted on the replay benchmark in RESEARCH part D (PLAN T17), not on reading its prompt. It uses three reference-project prototypes still in git history, with the defects found after them as ground truth, and the old `FLOW.md` as the baseline.
+The redesign is accepted on the replay benchmark in RESEARCH part D (PLAN T17), not on reading its prompt. It uses three reference-project prototypes still in git history, with the defects found after them as ground truth, and the old `FLOW.md` as the baseline. Since Q10, recall counts only the UX defects (`benchmark/ux-split.md`), and the bar is "at least the old `FLOW.md`'s UX recall, and at least 40%", in place of "twice the baseline".
 
 ## Non-goals
 
@@ -472,20 +470,21 @@ The redesign is accepted on the replay benchmark in RESEARCH part D (PLAN T17), 
     - The agent states its role and the moment table (§7.1–7.2) and the three verdicts.
     - It follows the method of §7.3, including the evidence gate, the caps and degraded mode, and returns the output contract of §7.4.
     - Its tools are `Read, Grep, Glob, Bash`, with no `Write` / `Edit` and no `memory:`.
-    - It carries one kept and one rejected calibration example, with no project names, and reads `brain/chore/ux-review.md` when present.
+    - It carries kept and rejected calibration examples, with no project names, and reads `brain/chore/ux-review.md` when present.
+    - It reviews UX only and raises no layout, motion or visual-accessibility findings (Q10).
     - `adversarial-verifier` and `adversarial-review` take `SPEC.md` criteria as the contract and `FLOW.md` as a map (§7.5).
-13. **Replay benchmark passes** (RESEARCH part D, PLAN T17). On the three reference prototypes the redesigned agent meets every pass threshold against the old `FLOW.md` baseline. The results table is recorded in the PLAN log.
+13. **Replay benchmark passes** (RESEARCH part D, PLAN T17). On the three reference prototypes the redesigned agent meets every pass threshold against the old `FLOW.md` baseline, measured on the UX defects (Q10). The results table is recorded in the PLAN log. Accepted by the maintainer on 2026-10-06, with one known gap on runtime claims without evidence (Q11).
 14. **Release hygiene.** `npm run build` and `npm test` green. EVAL.md updated. Version bumped to `0.7.0`. README documents the config, the modes and the new UX flow.
 
 ## Decisions (formerly open questions)
 
-All nine were resolved by the maintainer on 2026-10-05. Each keeps its rationale so the executing session knows why.
+Q1–Q9 were resolved by the maintainer on 2026-10-05, and Q10–Q11 on 2026-10-06. Each keeps its rationale so the executing session knows why.
 
 - **Q1 — Where the `ux-advisor` result persists between `prototype` and `create-spec`. Resolved: in context, with a file only on interruption.**
   - `create-spec` is entered in the same run (Phase 6 already does this), so the review is passed in context. `create-spec` writes `FLOW.md`.
   - If the user stops after the review, it is persisted as `UX-REVIEW.md` next to the surviving prototype variant. `create-spec` picks it up from the cited prototype path, and the file is deleted with the surface.
 - **Q2 — Single-file tech-debt stores. Resolved: migrate, with confirmation.** Per-spec files are what `docs-maintenance` and `review-ingest` address; supporting a single file would complicate every skill.
-- **Q3 — Live accessibility checks. Resolved 2026-10-05: yes.** `ux-advisor` gets `Bash` to drive `agent-browser` against the prototype route, read-only. The maintainer adds that it must also **see the screens**: screenshots of every viewport and state it relies on, opened and inspected (§7.3, step 2).
+- **Q3 — Live accessibility checks. Resolved 2026-10-05: yes.** `ux-advisor` gets `Bash` to drive `agent-browser` against the prototype route, read-only. The maintainer adds that it must also **see the screens**: screenshots of every viewport and state it relies on, opened and inspected (§7.3, step 3). Narrowed by Q10: the screens are inspected for the task, not for layout.
   - Rendered evidence is the single biggest lever: the old agent never saw the UI, and every shipped defect class lived there (RESEARCH A2, B3).
   - `Write` / `Edit` are dropped at the same time (§7.6).
 - **Q4 — `link --force` with a differing `CLAUDE.md`. Resolved: refuse.** Reconcile first: init-brain shows the merge for confirmation, then links. There is no backup-and-link path.
@@ -504,6 +503,19 @@ All nine were resolved by the maintainer on 2026-10-05. Each keeps its rationale
   - The verdict is `iterate`, not a new divergent round: at most 3 small changes per round and at most 2 rounds.
   - The `prototype` orchestrator applies them and `ux-advisor` re-reviews (§7.2).
 - **Q9 — The calibration page. Resolved 2026-10-05: fixed path.** `brain/chore/ux-review.md` is a convention, as `motion.md` is, with no `paths.*` key. No project has this page yet, so there is no existing location to honor.
+
+- **Q10 — UX only. Resolved 2026-10-06 (maintainer, after T17 iteration 1).** `ux-advisor` reviews UX; UI goes to `design-engineer`.
+  - **Why:** the market survey of UX agents and browser evaluators found nothing that covers runtime UX defects better. Rescored on UX defects only, iteration 1 tied the old `FLOW.md` (14 of 27), and part of its gain came from UI defects.
+  - **UX** is what the person loses in task, work, data, information or control: flows, outcomes and states, leaving and interrupting, copy, and task-level accessibility (focus after an action, announcements).
+  - **UI** is appearance and feel: layout, widths, motion, contrast, focus rings, target size, accessible-name markup, browser and device rendering.
+  - **Effect on the method:** the mechanical UI pass (width sweep, moving the trigger, ring clipping, touch emulation, axe) leaves the agent. An outcome catalogue read from the code, a leave-and-interrupt pass and a copy pass replace it (§7.3).
+  - **Effect on the benchmark:** the frozen split is `benchmark/ux-split.md`. The pass bar changes from "twice the baseline" to "at least the baseline's UX recall, and at least 40%"; the other criteria are unchanged (RESEARCH part D).
+  - **Open consequence:** `design-engineer` has no `Bash`, so nothing checks UI defects that only show at runtime on the prototype. This is outside this spec.
+- **Q11 — Accept iteration 2. Resolved 2026-10-06 (maintainer).** The redesign ships as of T17 iteration 2, with no iteration 3.
+  - **Ties pass:** the bar says "at least the baseline's UX recall", and two cases meet it exactly.
+  - **Known gap:** two short bullets in one case, and one borderline in another, state runtime behavior without citing their evidence. The code supports each, so the gap is in form, not in substance. The iteration 3 proposal in the PLAN log stays on file if real reviews show it.
+  - **Validity and adoption:** accepted on the scorers' provisional verdicts, not judged finding by finding.
+  - **Docs:** every decision of this spec is folded into the shipped docs (README, Brain Schema, skills, agents, the init-brain playbook), so a project adopts 0.7.0 without reading `specs/`.
 
 ## Risks
 

@@ -11,7 +11,7 @@ updated: 2026-10-05
 
 # Plan: project-aware install, review modes, prototype-gated UX review, router detection
 
-**Status:** Planned — not started. All SPEC open questions were resolved on 2026-10-05; the spec is `approved`. Written to be executed in a separate session.
+**Status:** T1–T17 complete. T1–T16 on 2026-10-05; T17 closed on 2026-10-06 after three iterations (0–2). After iteration 1 the maintainer narrowed `ux-advisor` to UX only and changed the recall bar (SPEC Q10). Iteration 2 meets the UX recall bar in all three cases, two of them by a tie, and the maintainer accepted it as it stands, with no iteration 3 (SPEC Q11). The one criterion it misses, "zero runtime claims without evidence", is a known gap. Every decision now lives in the shipped docs (README, Brain Schema, skills, agents); this folder is the record of how they were reached. The spec is `implemented`.
 **Branch:** `feat/project-config-and-flow-modes` (this plan is its first commit).
 **Spec:** [SPEC.md](SPEC.md) · **Evidence:** [REFERENCE-sevedemo.md](REFERENCE-sevedemo.md), [RESEARCH-ux-advisor.md](RESEARCH-ux-advisor.md)
 
@@ -535,4 +535,248 @@ Wave 3 tasks edit overlapping files (`create-spec`, `create-plan` and `implement
 
 ## Log
 
-_Empty — append one line per completed task: `T<n> — <date> — <result / deviation>`._
+- T1 — 2026-10-05 — `src/core/config.ts` + 17 tests. Partial/older files decode against the defaults; `mergeMissing` never changes a present value and keeps unknown keys; `setKey` errors list the known keys / allowed values. The config path is `seed` through the existing `brain/` rule (explicit test).
+- T2 — 2026-10-05 — `src/core/router.ts` + 18 tests. `ROUTER_STUB` moved out of `linker.ts`. Deviation: `routerState` also reads the reverse layout (`AGENTS.md → CLAUDE.md`) as `claude-only`, so `link` promotes it instead of offering a `--force` that would have discarded the content. A short file still lists its signals after `stub`.
+- T3 — 2026-10-05 — `src/core/detect.ts` + 16 tests. Deviations: tech-debt layout has a third value, `flat` (pages directly in the dir), so it is not mislabelled `single-file`; `reviewLayout` infers the reviews dir from where the reports are (e.g. `brain/reviews`) and returns counts; `suggestConfig` returns a full config plus one reason per key with a `detected | default` basis (`configDisagreements` uses it).
+- T4 — 2026-10-05 — `scan` emits `persona-source`, `tech-debt-store`, `review-store`, `router` (state + signals + divergence), `config:` notes; `--json` adds `context`. Integration "scan — project context". Shared collector `src/services/context.ts`.
+- T5 — 2026-10-05 — `init` flags (`--review-mode` as a choice, `--review-location`, `--tech-debt-dir`, `--personas`); `upgrade` creates/completes the config with detected paths and `review.mode` defaulted to `total` (the router's suggestion is only reported — a policy is never adopted silently); `doctor` validates the config and configured paths, `REQUIRED_DIRS` uses `paths.techDebt`; new `brain config get|set`. A flag on an existing config is reported as ignored, never applied. Integration "config lifecycle" (3 cases). Shared writer `src/services/project-config.ts`.
+- T6 — 2026-10-05 — `linker` reads router contents; `identical` links without `--force`; `divergent` is a conflict naming the `CLAUDE.md`-only headings and the similarity, also under `--force`. `link`/`upgrade` notes separate reconcile conflicts from `--force`-able ones. 5 new link-plan cases + 2 integration cases; existing cases unchanged.
+- T7 — 2026-10-05 — Brain Schema: `## Project configuration` (keys, tokens, the spec's review folder, the mode matrix, the never-edit rule), `personas.md`, `type: personas`, `review/` with both layouts and ingest, `FLOW.md` as a map, `chore/motion.md` + `chore/ux-review.md`. `AGENTS.md` ≡ `CLAUDE.md`. `index.md` scaffold uses the tokens.
+- T8 — 2026-10-05 — Gate lines in create-spec (step 10, {total}), create-plan (step 13, {total, plan}), implement-spec (post-implementation gate + Quick start 8, {total}; closing-step review only under `total`), handoff reports how the spec was checked; adversarial-review Contract → Trigger. Config read in every Quick start step 1.
+- T9 — 2026-10-05 — `<techDebt>`/`<reviews>` tokens across agents, adversarial-review (all files and both templates, `<folder>` wikilink convention), docs-maintenance, implement-spec, `openai.yaml`. Grep: no literal tech-debt or review path in `assets/` outside the Brain Schema defaults table.
+- T10 — 2026-10-05 — `ux-advisor` reads `<personas>` (verbatim segments, generic axes only when `null`); create-spec names personas in Context; prototype Phase 1 scopes from `<personas>` (in "In a brain project", so the upstream-shared body stays identical).
+- T11 — 2026-10-05 — `ux-advisor` triggered only by `prototype` Phase 6 / `keep` (brief with the 5 inputs, iterate loop, `UX-REVIEW.md` on interruption). create-spec consumes the review (step 8), writes `FLOW.md` from the new `references/flow-map.md`, offers rejected findings to `brain/chore/ux-review.md`, and says "no UX review ran" for user-facing specs without one. create-plan / implement-spec / design-engineer no longer invoke it. Grep: every other hit is descriptive.
+- T11b — 2026-10-05 — `ux-advisor` rewritten (168 lines; tools `Read, Grep, Glob, Bash`; no `memory:`): role + does-not-own, moment table + 3 verdicts + small-change rule + loop, read-the-project, method with `agent-browser` commands (screenshots opened, axe via `a11y` or `eval`), evidence gate, caps, DEGRADED, output contract, kept/rejected calibration, self-verification. The installed `agent-browser` 0.27.1 has no `a11y` command and the bundled skill text does not document one: the agent falls back to axe-core through `eval`. Verifier/adversarial-review: `SPEC.md` criteria are the contract, `FLOW.md` a map; `grep "error/edge path"` in the verifier → none.
+- T12 — 2026-10-05 — Ported and generalized from the reference project: `docs-maintenance/references/review-ingest.md` (guard, read, fold, backlink, mark, log; `<techDebt>`, `review.location`, `<folder>` links), `## Secondary: Review Ingest`, Step 2 `FLOW.md` + sibling `REPORT.md`, Step 3 v2/v1 section mapping, Step 7 processing, log line; planner-phase "Spec-folder inputs"; lifecycle reading order + acceptance-audit check aimed at the criteria `FLOW.md` cites; FLOW slice in `parallel-worker-brief.md`.
+- T13 — 2026-10-05 — Agents read the config first and the router with the `CLAUDE.md` fallback; later mentions say "the root router". `memory: project` on `adversarial-verifier` and `review-classifier` only, each with a short note on what to keep (how to check / how to route, never project facts).
+- T14 — 2026-10-05 — init-brain: Step 1 fourth choice (review mode), Step 1b (project context), Step 2 flags + pre-CLI path, Step 5 → `router.md`, verify checks the config. New `references/project-context.md` and `references/router.md`; advisor-detection alias table + twin handling + no ux/design wiring + carried-over block cleanup; migration: pre-CLI install, legacy agents dir, agent memory (Q5), leftover files; providers conflicts text. `brain onboard` inlines both new references.
+- T15 — 2026-10-05 — README (CLI table, project configuration, review modes, UX flow, release notes 0.7.0), EVAL rows (config lifecycle, scan project context, router states, config validation [auto]; three review modes, prototype handoff, ux-advisor evidence/degraded/iterate/decline, no UX trigger elsewhere, replay benchmark, review ingest, dry run [man]), version 0.7.0. `npm run build` clean; `npm test` 151 green.
+- T16 — 2026-10-05 — Reference-project dry run on a detached worktree of `staging` (2728d48b), removed afterwards. Scan suggested exactly the expected values (review.mode none — "CLAUDE.md states review only on request"; review-tree, 15 of 19 reports in the tree; `brain/tech-debt`, 26 pages; persona section in `ux-flow-strategist.md`; router `claude-only`, judged `partial` with a workflow overlap at Step 7). Ran `init --skills-dir .claude/skills --review-mode none` (pre-CLI install: adopt in place) → `upgrade` (migrated to `.agents/skills`, promoted `CLAUDE.md`, linked) → personas extracted to `brain/personas.md` + `config set` → router Step 7 replaced by a pointer to `review.mode`, critical paths from the legacy classifier added to Security → legacy agents dir sorted (2 stale shipped copies, 2 twins removed) → `link` → `upgrade --force` → doctor. Result: all 11 suite skills and 4 shipped agents byte-identical to `assets/`; config `review.mode: none`, `review.location: review-tree`, `paths.techDebt: brain/tech-debt`, `paths.reviews: brain/review`, `paths.personas: brain/personas.md`; `AGENTS.md` canonical, `CLAUDE.md → AGENTS.md`; `.claude/agent-memory/adversarial-verifier/` untouched (211 files), `review-classifier-router/` renamed to `review-classifier/`, the 23 `ux-flow-strategist` notes listed for `brain/chore/ux-review.md` (candidates for Component traps: the SVG `role=img` note, the centered-dialog async height, the expand-card overlay rules); doctor exit 0. **Two gaps found and fixed in the package** (each would otherwise have been a hand edit): (1) the adopted skills kept `## Project Advisors` blocks wiring the legacy twin → advisor-detection now resets carried-over blocks; (2) 7 old `design-engineering` references stayed in the skill folder → `doctor` reports `untracked` files inside bundled skills, migration says to clean them. Deviation from the plan's step 3: `init --providers claude` would have installed a second copy next to the real `.claude/skills`; the playbook's pre-CLI path (`init --skills-dir .claude/skills`, then `upgrade`) adopts and migrates instead. Observation, unchanged: the adopted Brain Schema is overwritten by the first plain `upgrade` (adopt semantics), which is what standardization wants here.
+
+### T17 — frozen ground truth (2026-10-05, compiled before any run)
+
+Compiled blind to the redesigned agent by three read-only agents over the reference project's history on `staging`: each spec's review `REPORT.md`, its tech-debt page, `IMPLEMENTATION-NOTES.md` / `PLAN*.md` logs and the later fix commits. The old `FLOW.md` was excluded as a source. Kept only defects observable on the prototype at its commit (UX, accessibility, missing states, placement, copy); backend-only and implementation-only items dropped. Defects that only the implementation introduced (e.g. the checkbox double toggle, `dd8a1c75`) are dropped, because the prototype does not have them.
+
+**Case 1 — `company/linkedin-sync`, prototype `3adcff19` (15 defects: 3 P0, 10 P1, 2 P2)**
+
+| ID | Defect | Where | Class | Source | Evidence at 3adcff19 | Sev |
+|---|---|---|---|---|---|---|
+| LS-1 | Card opens "in place" pressed against the viewport bottom when the row is mid/low page | expanded card position | placement | 1d604af9 (D22, AC35) | VariantVetrina.tsx:368 placement in-place; ExpandCard.tsx:100-107 | P1 |
+| LS-2 | Open card keeps opening width/left on resize/rotation → too narrow / off-screen | expanded card geometry | placement | REPORT r2 MINOR v7; c5ce04d3 | ExpandCard.tsx:79-93,130-132,193-199 | P1 |
+| LS-3 | Opening the hub never moves focus into the aria-modal dialog (falls to body); Tab not contained | expanded card hub | a11y | REPORT r2 MAJOR v7; 478277c9 | ExpandCard.tsx:205-207,236-239,177-179; VariantVetrina.tsx:155-202 | P1 |
+| LS-4 | Focus not returned to the LinkedIn row on close (drops to body) | close path | a11y | REPORT r1/r2 v7 | ExpandCard.tsx:143-164,208-210 | P1 |
+| LS-5 | Scrim appears in one frame (no fade-in); under reduced motion cut mid-fade | scrim | interaction/motion | REPORT r2 BLOCKER v8; tech-debt v8 | proto.css:256-269; ExpandCard.tsx:214-218,54,156-163 | P1 |
+| LS-6 | Header grows ~45px instantly hub→warning/confirm faces while frame animates | expanded card header | interaction/motion | REPORT r2 MAJOR v8; 478277c9 | VariantVetrina.tsx:358-359; MorphView.tsx:79-80 | P1 |
+| LS-7 | Focus ring of confirm buttons clipped right/bottom (overflow hidden) | confirm buttons | a11y | tech-debt NIT v7 | proto.css:109-112; VariantVetrina.tsx:137-148 | P2 |
+| LS-8 | Reopening during the ~400ms return trip leaves card stuck (no scrim/Escape, won't reopen) | collapsed row during close | interaction | REPORT r2 MAJOR v7, r1 BLOCKER v5 | ExpandCard.tsx:111-112,156-163; machine.ts:216-219 | P1 |
+| LS-9 | Closing the success stamp and reopening within the linger window → card closes by itself | success stage | interaction | REPORT r1 BLOCKER v1 | machine.ts:93,102,113-116,221-225,201-210 | P0 |
+| LS-10 | Ambiguous server outcomes shown as definite failure ("no data written") instead of uncertain/verify | card error face | missing-state | REPORT r1/r2 BLOCKER v2 | state never shown (machine.ts success-only) | P0 |
+| LS-11 | Non-closable working card can strand the user (hung disconnect/save/re-read; archived company retry loop) | busy/uncertain faces | interaction | REPORT r1/r2 MAJOR v1-v3 | state never shown (no hang/timeout) | P1 |
+| LS-12 | Error surfaces mislead or go silent (404 closes silently, 401 wrong blame, 400 wrong copy, retry not re-announced) | error faces + aria-live | copy | tech-debt v1/v2/v7; REPORT checklist | state never shown (no error copy) | P2 |
+| LS-13 | Rate-limit (429) reason shown on disconnect confirm with enabled Scollega; forgotten on workspace switch | hub/disconnect confirm | copy | REPORT r1 MAJOR v6, r2 MAJOR v1 | state never shown | P1 |
+| LS-14 | With unsaved page edits, leave dialog offers «Salva ed esci» during uncertain/just-after sync → overwrites fresh import | leave dialog / SaveBar | interaction | REPORT r1 BLOCKER v4, MAJOR v5 | state never shown (no dirty tracking in harness) | P0 |
+| LS-15 | Messages explaining the hold are lost (leave dialog without discard count, SaveBar live region dropped, Salva-prima error inside inert SaveBar) | leave dialog, SaveBar | copy | REPORT r1 MAJOR v4, r2 MINOR v7 | state never shown | P1 |
+
+Dropped: 40 (double PostHog event, dead i18n keys, options.signal/try-finally/dispose, BE limiter, R5 social_media write).
+
+**Case 2 — `freelance/suggested-skills`, prototype `442aeea4` (14 defects: 4 P1, 10 P2)**
+
+| ID | Defect | Where | Class | Source | Evidence at 442aeea4 | Sev |
+|---|---|---|---|---|---|---|
+| SS-1 | «+N» chip wraps to a 3rd row at card widths 270–343px (~1% of profiles) | card compact preview | placement | REPORT MAJOR v2; 1ae965f3 | chips.tsx:57-72,96-101; page-shell.tsx:85 | P1 |
+| SS-2 | Closing the modal leaves focus on body, not the opener | modal close → opener | a11y | REPORT MINOR v5; 49904d62 | skills-section.tsx:326-343; ui/dialog.tsx:46-52 | P1 |
+| SS-3 | Typed-but-unconfirmed text silently lost (Esc/outside/Salva ignore it) | modal input + Salva | interaction | REPORT MINOR v3; 7da09004 | chips.tsx:259-263,309-314; skills-section.tsx:128-129,224,326-329 | P1 |
+| SS-4 | Close question wrong/missing after partial or uncertain save | modal close confirmation | missing-state | REPORT MAJOR v3; 1ae965f3 | state never shown | P1 |
+| SS-5 | Back/route change discards the modified draft with no question, even mid-save | modal vs navigation | interaction | REPORT MINOR v3 | no leave guard; skills-section.tsx:326-329 | P2 |
+| SS-6 | Save-error copy: raw English errors, «86400 secondi», «Riprova più tardi» next to immediate Riprova | modal save-error notice | missing-state | aa0c968d; tech-debt D1/D2 | state never shown | P2 |
+| SS-7 | Safari/macOS Firefox: clicking a chip ✕ doesn't move focus to the next ✕ | modal chip ✕ / suggestion buttons | a11y | REPORT MINOR v5 | focus.ts:17-18; chips.tsx:266-273; suggestions-box.tsx:38-43 | P2 |
+| SS-8 | Touch devices: focus jumps into the input, virtual keyboard covers suggestions and Salva | modal open / after last ✕ | interaction | REPORT MINOR v5 | skills-section.tsx:336-341,139; chips.tsx:268-272 | P2 |
+| SS-9 | Mobile: centered modal jumps on every height change; Salva can sit under iOS toolbar | modal on ~375px | placement | d6d35bbe; tech-debt O6 | ui/dialog.tsx:48; skills-section.tsx:188-217 | P2 |
+| SS-10 | Modal ✕ announced in English and reached last in Tab order | modal close button | a11y | REPORT NIT v5 | ui/dialog.tsx:54-71 | P2 |
+| SS-11 | «+N» accessible name doesn't contain visible «+28» (label in name) | card «+N» | a11y | REPORT NIT v2 | chips.tsx:113-115 | P2 |
+| SS-12 | «30/30» counter amber-600 ~3:1, fails AA at 12px | n/30 counter | a11y | PLAN FE7 log 7da09004 | chips.tsx:213 | P2 |
+| SS-13 | No announcement when accepting a suggestion by typing; × gives no cue rejection is permanent | suggestions box / input | a11y | IMPL-NOTES O4; REPORT NIT v4 | no aria-live; skills-section.tsx:107-115,102 | P2 |
+| SS-14 | Reject-only save shows «Competenze aggiornate» toast though no skill changed | success toast | copy | IMPL-NOTES EC-SK15 | skills-section.tsx:162; fixtures.ts:30-33 | P2 |
+
+Dropped: 46 (PATCH bookkeeping, hook/onboarding tests and mutants, cache invalidation, onboarding-only cap, Tab-without-Enter on the real field).
+
+**Case 3 — `freelance/dashboard-feedback` add-skills step, prototype `24aacc0d` (14 defects: 6 P1, 8 P2)**
+
+| ID | Defect | Where | Class | Source | Evidence at 24aacc0d | Sev |
+|---|---|---|---|---|---|---|
+| AS-1 | Only the name/% label (and 16px box) toggles; row padding/gap inert though the row highlights; ~20px touch target vs 40px claimed | mode, checkbox row | interaction/a11y target | de94cf64; IMPL-NOTES Fase 3 #1 | checkbox-row.tsx:29-41, :71-74; shell.tsx:36-38 | P1 |
+| AS-2 | Focus ring around the 16px box only, not the row | mode, checkbox rows | a11y focus | tech-debt DS checkbox; de94cf64 | checkbox-row.tsx:45 | P2 |
+| AS-3 | Accessible name runs together «Docker58%» (no separator / «delle ricerche») | checkbox name | a11y name | PLAN-FE FE16 (b) | checkbox-row.tsx:72-73; shell.tsx:160-167 | P2 |
+| AS-4 | Tick SVG has <title>Selezionata</title>, not hidden → extra announcement | checked indicator | a11y | tech-debt; de94cf64 | checkbox-row.tsx:54-59 | P2 |
+| AS-5 | Dead end after success: outcome line replaces the action, remaining gaps can't be added | action slot | interaction (strands) | PLAN-FE FE17; IMPL-NOTES | modo-selezione.tsx:42-43, :86-106 | P1 |
+| AS-6 | Focus drops to body after «Aggiungi» (button unmounted, outcome line never focused) | confirm bar → outcome | a11y focus | de94cf64; IMPL-NOTES #2 | modo-selezione.tsx:129-133, :92-95 | P1 |
+| AS-7 | No visible saving state; mode exits at once; open button live during save; re-entry swallows success | mode during save | missing-state/interaction | SPEC S9; de94cf64 | modo-selezione.tsx:129-133, :140, :107-113 | P1 |
+| AS-8 | Failed save strands user: selection hidden, no retry in view, focus lost, stale error after reopening | action slot retry/over_cap | interaction/a11y | FE18 log; FE17 log | modo-selezione.tsx:129-133, :44-50, :157-159 | P1 |
+| AS-9 | No outcome surface when the detached card is force-closed mid-save (resize); toast never renders | collapsed card | missing-state | de94cf64; tech-debt toast after resize | shell.tsx:371-393 (state never shown) | P1 |
+| AS-10 | Room line always shown even with plenty of room (noise) | mode column top | copy | PLAN-FE FE16 DL19 | modo-selezione.tsx:61; checkbox-row.tsx:89-108 | P2 |
+| AS-11 | Confirm button «Aggiungi» doesn't say what/how many; separate counter | confirm bar | copy | PLAN-FE FE17 | modo-selezione.tsx:119-123, :140-142 | P2 |
+| AS-12 | No lead line «Seleziona quelle che hai davvero» in the mode | mode column top | copy/placement | de94cf64 add_skills.lead | LeadLine defined, never rendered | P2 |
+| AS-13 | Contradictory copy after «Tetto cambiato» (room line says full vs error says 1 left), no guidance to untick | room + failure line | copy | PLAN-FE FE17 | shell.tsx:89-92; modo-selezione.tsx:35,:51,:136 | P2 |
+| AS-14 | Only retry/over_cap failures designed; rate-limit, quota, rejected, timeout, already-present never designed | action slot outcomes | missing-state/copy | IMPL-NOTES wait split; de94cf64 seven outcomes | fixtures.ts:87; harness.tsx:40-44 | P2 |
+
+Dropped: 12 (double toggle introduced by the implementation dd8a1c75, /simplify regression, 15s deadline/reread-before-PATCH, close/reopen losing mode already in prototype comment, fe-fase-1 REPORT rows = rate bell/Fido banner).
+
+### T17 — runs
+
+Setup (2026-10-05): one detached worktree per prototype commit, `pnpm install`, Vite dev server per case (ports 3101–3103), a stand-in API that answers 401 to every call (the app shell needs `VITE_API_URL`; the prototypes run on fixtures). To reproduce the Phase 6 moment, each worktree loses the spec folder (no `SPEC.md`/`FLOW.md` exists yet in the new flow), `.claude/agent-memory/` and the legacy UX agent, and gains `brain/brain.config.json` + `brain/personas.md` (extracted from that commit's legacy agent). Each run: a clean-context agent given the shipped charter verbatim plus the five Phase 6 inputs, on its own `agent-browser` session, git forbidden. Scoring: one clean-context scorer per document with the same rubric for baseline and reviews (hit / partial / miss with a quote; strict recall = hits / N, lenient = (hits + ½ partials) / N). Validity is a provisional judgement by the scorer — **the maintainer's call per RESEARCH part D is still pending**.
+
+Baseline (old `FLOW.md` at the prototype commit):
+
+| Case | Strict recall | Lenient | Lines | Findings | Open questions (with default) | Runtime claims w/o evidence |
+|---|---|---|---|---|---|---|
+| linkedin-sync | 4/15 = 0.27 | 0.53 | 509 | 39 | 8 (7) | 12 |
+| suggested-skills | 3/14 = 0.21 | 0.54 | 350 | 32 | 6 (6) | 14 |
+| add-skills (whole FLOW) | 8/14 = 0.57 | 0.68 | 735 | 62 | 6 (4) | 6 |
+
+Note on the thresholds (unchanged): for add-skills, "recall ≥ 2× baseline" cannot be met (2 × 0.57 > 1). That `FLOW.md` predates the prototype by two phases, and several of the case's defects are the prototype deviating from it.
+
+Iteration 0 (the charter as shipped by T11b):
+
+| Case | Strict recall | Lenient | Lines | Findings | Open q. (default) | Decisions w/ default+AC | Runtime claims w/o evidence | Valid (provisional) | Verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| linkedin-sync | 3/15 = 0.20 | 0.43 | 69 | 18 | 2 (2) | 6/6 | 6 | 7 valid, 1 doubtful, 1 invalid | iterate |
+| suggested-skills | 4/14 = 0.29 | 0.50 | 71 | 19 | 3 (3) | 6/6 | 4 | 12/12 | iterate |
+| add-skills | 6/14 = 0.43 | 0.57 | 62 | 12 | 2 (2) | 6/6 | 2 | 8 valid, 1 doubtful | iterate |
+
+Iteration 0 fails recall (no case reaches 2× baseline; two are under 40%) and "zero runtime claims without evidence". It passes length, open questions, defaults/AC on every decision. Missed defects, by pattern: interruptions (reopen during a close transition or a success linger, close or resize during a save), the trigger's position and widths between breakpoints, contrast in forced states, names of non-interactive content (an icon's `<title>`), touch devices, clipped focus rings, labels and status-line copy, input left unconfirmed. Iteration 1 changes the agent, never the targets: the kept calibration example becomes an interruption finding (generic); the mechanical pass adds touch emulation, the full accessibility tree, before/after comparison of state changes, a width sweep, moving the trigger, axe in every forced state; the keyboard walk checks ring clipping; the state matrix adds interruptions, unconfirmed input and label/message reading; the evidence gate covers every section.
+
+Iteration 1 (the charter now in `assets/agents/ux-advisor.md`, 177 lines; diff in `benchmark/iter1/agent-diff.patch`):
+
+| Case | Strict recall (iter 0) | Lenient | Lines | Findings | Open q. (default) | Decisions w/ default+AC | Runtime claims w/o evidence | Valid (provisional) | Verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| linkedin-sync | 6/15 = 0.40 (0.20) | 0.60 | 71 | 20 | 3 (3) | 6/6 | 5 | 9 valid, 1 doubtful | iterate |
+| suggested-skills | 5/14 = 0.36 (0.29) | 0.68 | 70 | 21 | 3 (3) | 6/6 | 4 | 10 valid, 1 doubtful | iterate |
+| add-skills | 7/14 = 0.50 (0.43) | 0.61 | 71 | 17 | 3 (3) | 6/6 | 0 | 6 valid, 1 doubtful | iterate |
+
+Against the pass bar (RESEARCH part D):
+
+| Criterion | linkedin-sync | suggested-skills | add-skills |
+|---|---|---|---|
+| Recall ≥ 2× baseline (strict) | 0.40 vs 0.54 — **no** | 0.36 vs 0.42 — **no** | 0.50 vs 1.14 — **unreachable** |
+| Recall ≥ 40% | 0.40 — yes | 0.36 — **no** | 0.50 — yes |
+| ≥ 2/3 findings valid | 90% provisional — maintainer | 91% provisional — maintainer | 86% provisional — maintainer |
+| ≥ 1 adopted P0/P1 per case | maintainer | maintainer | maintainer |
+| Default + AC on every decision | yes | yes | yes |
+| ≤ ~120 lines, ≤ 3 open questions | yes | yes | yes |
+| Zero runtime claims without evidence | **no** (5) | **no** (4) | yes |
+
+### T17 — after iteration 1 (superseded by Q10)
+
+- **Not passed.** Iteration 1 beats the old agent on strict recall in two cases of three, on brevity (≈70 lines against 350–735), on defaults and criteria for every decision, and on unsupported claims (0–5 against 6–14). It still misses the recall bar in every case and the zero-unsupported-claims bar in two.
+- **What the remaining misses are.** Device- or browser-specific defects Chromium emulation cannot show (Safari focus, real touch: `set device` reported `maxTouchPoints=0`, iOS toolbar); single-frame motion defects (a scrim popping in, a header growing between faces), which the charter routes to `design-engineer`; copy nuance (a status line shown when it says nothing, a confirm label that does not say what it adds); a reopen during a 400 ms close transition, which the iteration 1 runs did not try even though the calibration example describes exactly that.
+- **Decisions the maintainer must take** (the plan forbids changing targets):
+  1. Judge validity and adoption on `benchmark/iter1/review-*.md` (the scorers' provisional verdicts are in `score-*.md`).
+  2. The add-skills recall threshold is unreachable. Keep it as a failed criterion, or exclude the case from that one criterion.
+  3. Whether to run iteration 2. Proposed changes: every sentence that states runtime behavior ends with its evidence in parentheses, checked in self-verification; interrupt closing transitions as well as success lingers; a "long content" pass with the longest plausible real values (fixtures hid the 3-row wrap).
+- **Artifacts:** `benchmark/` holds the frozen ground truth, the shared rubric, the baseline scores, and the reviews and scores of both iterations. Screenshots stayed in the session scratchpad. The worktrees, dev servers and stand-in API were removed after the runs; the setup above recreates them.
+
+### T17 — iteration 2: UX only (2026-10-06)
+
+- **Maintainer decision (SPEC Q10).** `ux-advisor` reviews UX only, and UI goes to `design-engineer`.
+  - **The split:** frozen in `benchmark/ux-split.md` before the run. 27 of the 43 defects are UX.
+  - **The bar:** in every case, strict UX recall ≥ the old `FLOW.md`'s, and ≥ 40%. The other criteria are unchanged. This replaces "recall ≥ 2× baseline" (RESEARCH part D, revision of 2026-10-06).
+  - **What prompted it:** the market survey found no agent or browser evaluator covering runtime UX defects that could replace or benchmark ours. The run, rescored on the UX subset, showed iteration 1 tied with the old `FLOW.md` (14/27 against 14/27).
+- **Agent changes** (`benchmark/iter2/agent-diff.patch`):
+  - **Removed:** the UI half of the mechanical pass: width sweep, moving the trigger, ring clipping, touch emulation, contrast and layout in screenshots, axe.
+  - **Added:**
+    - an **outcome catalogue read from the code** before the browser, with every outcome the real operation can return, marked present / missing / not reachable;
+    - a **leave-and-interrupt pass**, with a technique for acting inside a transition window (chained commands);
+    - a **copy pass** in every state reached.
+  - **Kept, at task level:** the keyboard walk, judged by where focus goes after each action and what is announced.
+  - **New output sections:** "Task accessibility fixes", "Outcomes and states", "Leaving and interrupting".
+  - **Calibration:** a second kept example (an outcome read from the code) and a second rejected one (a UI finding out of scope), both generic.
+- **Consumers aligned:**
+  - the Brain Schema twins;
+  - `create-spec` and its `flow-map.md`: the folding table, plus the `FLOW.md` States and Accessibility sections;
+  - `prototype` (the regression pass);
+  - `create-plan` (`planner-phase.md`);
+  - README, EVAL;
+  - SPEC §7 and Q10, and RESEARCH parts C and D.
+- **Setup:** as before. The briefs are identical to iterations 0 and 1 except for the charter, and the charter in each brief matched the shipped body byte for byte. Scorers judged all 43 defects with the same rubric, and UX recall is computed from their verdicts.
+
+| Case | UX recall, old `FLOW.md` | UX recall, iter 1 | **UX recall, iter 2 (strict / lenient)** | Lines | Open q. (default) | Decisions w/ default+AC | Runtime claims w/o evidence | Valid (provisional) |
+|---|---|---|---|---|---|---|---|---|
+| linkedin-sync | 4/10 = 0.40 | 0.50 | **4/10 = 0.40** / 0.65 | 76 | 3 (3) | 6/6 | 0 | 10 valid, 1 doubtful |
+| suggested-skills | 2/7 = 0.29 | 0.57 | **5/7 = 0.71** / 0.86 | 69 | 1 (1) | 6/6 | 2 (1 borderline) | 8 valid |
+| add-skills | 8/10 = 0.80 | 0.50 | **8/10 = 0.80** / 0.90 | 89 | 3 (3) | 6/6 | 1 (borderline) | 8 valid |
+| **Total** | 14/27 = 0.52 | 14/27 = 0.52 | **17/27 = 0.63** | | | | | |
+
+On the UI subset, iteration 2 has 1 hit of 16 (LS-2, the open card's geometry after a resize, reported as a task blocker). It raised no layout, motion or contrast findings.
+
+| Criterion | linkedin-sync | suggested-skills | add-skills |
+|---|---|---|---|
+| UX recall ≥ old `FLOW.md`, and ≥ 40% | 0.40 vs 0.40 — **yes, tie** | 0.71 vs 0.29 — yes | 0.80 vs 0.80 — **yes, tie** |
+| ≥ 2/3 findings valid | 91% provisional — maintainer | 100% provisional — maintainer | 100% provisional — maintainer |
+| ≥ 1 adopted P0/P1 per case | maintainer | maintainer | maintainer |
+| Default + AC on every decision | yes | yes | yes |
+| ≤ ~120 lines, ≤ 3 open questions | yes | yes | yes |
+| Zero runtime claims without evidence | yes | **no** (2) | **borderline** (1) |
+
+**What moved.**
+- **Gains, mostly in outcomes the prototypes could not show:**
+  - add-skills: AS-7, AS-8, AS-9, AS-11, AS-13 and AS-14 are full hits;
+  - suggested-skills: SS-3 and SS-4;
+  - linkedin-sync: LS-8, the reopen inside the close transition, found by chaining the commands as the charter now says.
+- **Losses:**
+  - LS-9: the reopen during the success linger was not tried this time;
+  - LS-11 and LS-14: partial, not hit;
+  - every UI defect, by design.
+
+### T17 — where it stands (after iteration 2)
+
+- **Recall bar:** met in every case, two by a tie.
+  - **Fragile:** each tied case rests on borderline verdicts. Scoring LS-10 as partial gives 0.30. Scoring AS-9 or AS-11 as partial gives 0.70.
+  - **Noise:** with one run per case, this margin is within run-to-run variation (iteration 2 found LS-8 and lost LS-9).
+- **Not passed:** "zero runtime claims without evidence" — 2 in suggested-skills, 1 borderline in add-skills.
+  - The claims sit in short bullets: a task-accessibility fix, a persona line.
+  - The code supports each claim, but the bullet does not cite it.
+- **Maintainer decisions pending:**
+  1. Judge validity and adoption on `benchmark/iter2/review-*.md`. The scorers' provisional verdicts are in `score-*.md`.
+  2. Whether ties pass. The bar says "≥", so they do as written.
+  3. Whether to run iteration 3, aimed at the evidence criterion and at stability. Proposal:
+     - every sentence that states runtime behavior ends with its evidence in parentheses, checked in self-verification;
+     - optionally, two runs per case, to see the variance before deciding.
+- **Environment:** worktrees, dev servers and the stand-in API were removed after the run. The setup above recreates them.
+
+### T17 — closed (2026-10-06)
+
+- **Maintainer decision (SPEC Q11).** Iteration 2 is accepted as it stands.
+  - **No iteration 3.**
+  - **Ties pass,** as the bar is written ("≥").
+  - **Validity and adoption** were not judged finding by finding. The scorers' provisional verdicts in `benchmark/iter2/score-*.md` stand.
+  - **Known gap:** "zero runtime claims without evidence" — 2 claims in suggested-skills, 1 borderline in add-skills. Each is a short bullet the code supports but does not cite. The iteration 3 proposal above stays on file if the gap shows up in real reviews.
+- **Shipped agent:** `assets/agents/ux-advisor.md` as of iteration 2. Its diff from iteration 1 is `benchmark/iter2/agent-diff.patch`.
+- **Folded into the shipped docs.** Every decision of the spec now lives where a project reads it, so no project needs `specs/` to adopt 0.7.0.
+  - **How the gaps were found:** a read-only audit of SPEC §1–§7, the ACs, Q1–Q10 and this log against the shipped files. About 58 of 75 items were already covered. The gaps were all on the upgrade side, plus a few stale lines.
+  - **New: `skills/init-brain/references/upgrade.md`,** the upgrade path for an existing brain, wired into SKILL.md Steps 1 and 2 and inlined by `brain onboard`. It covers:
+    - the previewed upgrade;
+    - the conflict groups that mix versions (Brain Schema; the UX flow files; the verifier contract);
+    - project context through `config set`;
+    - the advisor entries an older install wired;
+    - the router;
+    - older-format `FLOW.md` files and un-ingested reports;
+    - `agent-browser`, `untracked` leftovers, and agent memory.
+  - **README:**
+    - a new section, "Upgrading an existing project to 0.7.0";
+    - Get started points to it;
+    - the release notes add the benchmark result, what an older `FLOW.md` still enforces, and the upgrade path;
+    - the CLI table: `init` flags never change an existing config, and `doctor` reports `untracked` files;
+    - the router: the reverse layout is promoted;
+    - `agent-browser` is tied to `ux-advisor`;
+    - the repo layout gains `config`, `router`, `detect`, `specs/` and `test/`.
+  - **Stale lines fixed:**
+    - `design-engineer`: the review reaches it as acceptance criteria, which `FLOW.md` locates;
+    - `advisor-detection.md`: a UX agent's knowledge is split into UX, motion and UI conventions;
+    - `router.md`: the reverse layout;
+    - `providers.md`: no longer points at an unshipped path;
+    - `verify.md`: `agent-browser` is needed for the UX review;
+    - Brain Schema: `prototype` added to the primary skills;
+    - EVAL: the path grep now names init-brain's defaults, plus a new manual row, "Upgrade from 0.6 through the playbook".
+  - **Left open (outside this spec, Q10):** `design-engineer`'s charter still covers motion only. The UI scope that Q10 hands it (layout, contrast, focus rings, target size, accessible-name markup, device rendering) has no method there, and the agent has no `Bash` to see a rendered page.
+- **Re-running the benchmark.** `benchmark/` keeps everything needed to re-run it after a change to `ux-advisor`: the frozen ground truth, the UX/UI split, the rubric, and every iteration's reviews and scores. `test/EVAL.md` points to it.
+

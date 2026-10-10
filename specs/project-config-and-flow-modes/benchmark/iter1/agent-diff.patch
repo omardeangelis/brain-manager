@@ -1,0 +1,45 @@
+62a63
+> agent-browser set device "iPhone 14"               # touch emulation: where focus lands, what the keyboard would cover
+65c66,67
+< agent-browser snapshot -i                          # roles, names, refs
+---
+> agent-browser snapshot -i                          # interactive roles, names, refs
+> agent-browser snapshot                             # the full tree: names of images, headings, counters, status lines
+68,69c70,74
+< - **Look at every screenshot you rely on.** Open the file with `Read` and inspect it: layout, truncation, contrast, hierarchy, jumps between states. The accessibility tree alone does not show what the user sees.
+< - **axe.** Run `agent-browser a11y` when your CLI version has it. Otherwise inject axe-core with `eval`: from the project's `node_modules/axe-core/axe.min.js` when installed, else a pinned CDN build when the page can reach the network. Then run `axe.run()`. Violations become **one bundled list of mechanical fixes**, one line each with its location. `incomplete` items become manual checks. If neither route works, say the automated checks did not run.
+---
+> - **Look at every screenshot you rely on.** Open the file with `Read` and inspect it: layout, truncation, contrast, hierarchy. The accessibility tree alone does not show what the user sees.
+> - **Compare before and after every state change.** Something that appears in one frame, content that shifts, a dialog that re-centers when its height changes: each is a finding (the values to fix it belong to `design-engineer`).
+> - **Sweep the width** of the primary surface from 320 to 1280 in about 40 px steps, and screenshot where the layout changes: wraps, row limits and truncation break between breakpoints, not at them.
+> - **Move the trigger.** Open overlays with their trigger near the top, the middle and the bottom of the viewport.
+> - **axe.** Run `agent-browser a11y` when your CLI version has it. Otherwise inject axe-core with `eval`: from the project's `node_modules/axe-core/axe.min.js` when installed, else a pinned CDN build when the page can reach the network. Then run `axe.run()` **in every state you force** (step 3), not only the default view: limits, errors and success states carry their own colors and names. Violations become **one bundled list of mechanical fixes**, one line each with its location. `incomplete` items become manual checks. If neither route works, say the automated checks did not run.
+72c77
+< - `agent-browser press Tab` (and `Shift+Tab`), then `snapshot -i` at each step: log the role, the name, and whether focus is visible (screenshot when unsure).
+---
+> - `agent-browser press Tab` (and `Shift+Tab`), then `snapshot -i` at each step: log the role and the name, and screenshot the focused control to check that its ring is visible and not clipped by a container.
+80a86,88
+> - **Interrupt every transition and every async action.** While something animates, saves, waits or shows a timed message: close it, reopen it, press Escape, press the action again, resize across a breakpoint, go back. Whatever sticks, acts twice, or loses its outcome is a finding.
+> - **Leave input unconfirmed.** Type in each field, then press Escape, click outside, save, or navigate away without confirming: what happens to the text?
+> - **Read every label and message you force.** Each action says what it does (and to how many); each status line appears only when it tells the user something; error text is in the user's language, does not blame, and matches the control next to it.
+97c105
+< **6. Evidence gate.**
+---
+> **6. Evidence gate.** It applies to every section, persona situations and the state matrix included.
+103c111
+< - No claim about runtime behavior you did not trigger.
+---
+> - No claim about runtime behavior you did not trigger. A sentence elsewhere in the review either cites its observation or points to the decision or fix that does.
+141c149
+< > | 1 | P0 | Closing the filter sheet with Escape drops focus to the page body, so keyboard users lose their place | Return focus to the Filters trigger on close | After Escape or ×, focus is on the Filters button | walk step 7: `press Escape` → `snapshot -i` shows no focused element; screenshot `sheet-375-after-escape.png` |
+---
+> > | 1 | P1 | Reopening the panel while it is still closing leaves it half-drawn: no backdrop, Escape does nothing, and the trigger no longer opens it | A reopen during the close cancels the close and finishes opening | Reopen within the close transition: the panel is fully open, Escape closes it, the trigger works again | interruption: click ×, click the trigger 150 ms later → `snapshot -i` shows the panel with no dialog role and the trigger `aria-expanded=false`; screenshot `panel-reopen-mid-close.png` |
+143c151
+< It is located, observed, user-observable, and it comes with a default and a testable criterion.
+---
+> It was found by interrupting a transition instead of only watching it, it is located and observed, and it comes with a default and a testable criterion.
+162c170,171
+< - Does every finding pass the evidence gate (location, observed evidence, repro steps)? Did I claim nothing at runtime without a trace?
+---
+> - Does every finding pass the evidence gate (location, observed evidence, repro steps)? Did I claim nothing at runtime without a trace, in any section?
+> - Did I interrupt each transition and async action, sweep the width, move the trigger, emulate touch, and run axe in every forced state?
