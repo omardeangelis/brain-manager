@@ -4,7 +4,7 @@ import { Console, Effect, Either } from "effect"
 import { CONFIG_PATH, defaultConfig } from "../core/config.js"
 import { contentHash } from "../core/hash.js"
 import { MANIFEST_PATH, decodeManifest, reconcileRoles } from "../core/manifest.js"
-import { planUpgrade } from "../core/plan.js"
+import { planRuleInputs, planUpgrade } from "../core/plan.js"
 import { CANONICAL_AGENTS_DIR, CANONICAL_SKILLS_DIR } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
 import { Assets, type AssetFile } from "../services/Assets.js"
@@ -14,8 +14,10 @@ import { exists, pathFact, readTextOrNull, walkFiles } from "../services/fsx.js"
 /**
  * `brain doctor` — read-only health check: the project config (valid, and
  * its configured paths exist), brain structure, unstamped placeholders,
- * manifest presence, and the managed files' three-way state (same planner as
- * `upgrade`, but nothing is written). Exit code 1 when problems are found, so
+ * manifest presence, and the managed files' three-way state (same planner and
+ * rule inputs as `upgrade`, but nothing is written). Files the package no
+ * longer ships are reported as `orphan` and a project-owned skill folder is
+ * skipped; neither counts as a problem. Exit code 1 when problems are found, so
  * it is scriptable.
  */
 
@@ -111,15 +113,17 @@ export const doctorCommand = Command.make("doctor", { json }, (opts) =>
         }
         const assetHashes = new Map([...assetFiles].map(([p, a]) => [p, a.hash]))
         const paths = new Set([...assetHashes.keys(), ...manifest.value.files.map((f) => f.path)])
-        const diskHashes = new Map<string, string | null>()
-        for (const p of paths) {
-          const content = yield* readTextOrNull(p)
-          diskHashes.set(p, content === null ? null : contentHash(content))
-        }
+        const diskContent = new Map<string, string | null>()
+        for (const p of paths) diskContent.set(p, yield* readTextOrNull(p))
+        const diskHashes = new Map(
+          [...diskContent].map(([p, c]) => [p, c === null ? null : contentHash(c)])
+        )
 
+        const reconciled = reconcileRoles(manifest.value.files)
+        const rules = planRuleInputs({ manifestFiles: reconciled, skillsDir: manifest.value.skillsDir, diskContent })
         // The config is checked above; a missing one is a note, not a problem.
-        const tracked = reconcileRoles(manifest.value.files).filter((f) => f.path !== CONFIG_PATH)
-        for (const action of planUpgrade({ manifestFiles: tracked, assetHashes, diskHashes })) {
+        const tracked = reconciled.filter((f) => f.path !== CONFIG_PATH)
+        for (const action of planUpgrade({ manifestFiles: tracked, assetHashes, diskHashes, ...rules })) {
           switch (action._tag) {
             case "Update":
             case "Install":
@@ -133,20 +137,29 @@ export const doctorCommand = Command.make("doctor", { json }, (opts) =>
             case "Conflict":
               lines.push({ path: action.path, status: "modified", note: "differs from both manifest and bundled version" })
               break
-            case "Orphan":
-              lines.push({ path: action.path, status: "orphan", note: "tracked but no longer shipped" })
+            case "Remove":
+              lines.push({ path: action.path, status: "orphan", note: "no longer shipped; `brain upgrade` removes it" })
+              break
+            case "OrphanModified":
+              lines.push({ path: action.path, status: "orphan", note: "no longer shipped, locally modified; delete it by hand if nothing references it" })
+              break
+            case "OrphanMissing":
+              lines.push({ path: action.path, status: "orphan", note: "no longer shipped and missing on disk; `brain upgrade` drops it from the manifest" })
               break
             case "UpToDate":
             case "KeepLocal":
+            case "SkipSeed":
               break
           }
         }
         // Files inside a bundled skill's folder that neither the package ships nor
         // the manifest tracks: leftovers of a hand-installed or older copy, which
-        // `upgrade` never removes. Reported, not counted as a problem.
+        // `upgrade` never removes. Reported, not counted as a problem. A
+        // project-owned (all-seed) skill folder is the project's business.
         const known = new Set([...paths])
         for (const name of assets.skillNames) {
           const dir = `${manifest.value.skillsDir}/${name}`
+          if (rules.seedSkillDirs.has(dir)) continue
           if ((yield* pathFact(dir)).kind === "absent") continue
           for (const rel of yield* walkFiles(dir).pipe(Effect.orElseSucceed(() => [] as Array<string>))) {
             const file = `${dir}/${rel}`

@@ -35,6 +35,7 @@ automated rows; the rest are a manual smoke pass.
 | Single-skill install | `install-skill design-engineering --skills-dir <dir>/skills` (no brain) | copies only that skill plus `design-engineer` into `<dir>/agents`; re-run up-to-date; an edited agent is kept (`exists`) until `--force`; a skill with no linked agent installs alone | [auto] |
 | Skill↔agent link | `design-engineer.md` frontmatter | lists `design-engineering` under `skills:` (Claude Code preloads it) | [auto] (`companions` tests) |
 | Advisor block survives | wire a `## Project Advisors` block, then upgrade | block carried over (hash-normalized) | [auto] (`advisors` tests) |
+| Orphan rule | manifest tracks `managed` files this version no longer ships: one untouched (in a nested folder, or a whole retired skill), one edited, one whose advisor block holds content, one missing on disk; run `upgrade --dry-run`, `upgrade --force`, `upgrade --skill <other>` | dry run lists `would remove` and writes nothing; the untouched one is `removed` with the folders it leaves empty (up to the skill folder); the edited and advisor-wired ones stay on disk as `orphan` ("locally modified, left on disk"), even with `--force`; the missing one is `orphan` ("missing on disk"); all leave the manifest; a scoped run touches only its own skill's orphans; `doctor` lists them as `orphan`, exit 0 | [auto] (`plan` tests + integration) |
 | `--dry-run` | — | nothing written | [man] |
 
 ## Link / Doctor / Scan
@@ -78,7 +79,7 @@ Run on a toy spec in a throwaway project after `init`.
 | Scenario | Expect | |
 |---|---|---|
 | `--json` on every command | valid Report JSON | [man] |
-| agent-browser project copy | preserved (`kept`), never clobbered | [auto] (`init` semantics) |
+| agent-browser project copy | preserved (`kept`), never clobbered; a skill folder whose entries are all `seed` gets no newly shipped file (`kept` — project-owned skill), and `doctor` neither flags it `outdated` nor walks it for `untracked` files (exit 0) | [auto] (`init` semantics, `plan` tests + integration) |
 | `--skills-dir` override | no provider symlinks wired | [man] |
 | Degradation, non-Claude (b1) | the advisor steps read sensibly when run inline (no subagent runtime) | [man] |
 | Multi-provider agents (b2) | once shipped: generated native agent files (e.g. `.codex/agents/*.toml`) load in-tool | [man] (future) |

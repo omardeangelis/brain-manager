@@ -3,7 +3,7 @@ import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
 import { fileURLToPath } from "node:url"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { contentHash } from "../src/core/hash.js"
 
 /**
@@ -17,6 +17,11 @@ import { contentHash } from "../src/core/hash.js"
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const BIN = path.join(REPO_ROOT, "dist", "bin.js")
+
+// Each case runs the CLI several times (3-4 s on an idle machine). The 5 s
+// default flakes when another suite shares the machine, such as the ui-review
+// probes, which drive a browser in parallel.
+vi.setConfig({ testTimeout: 30_000 })
 
 const tmpDirs: Array<string> = []
 const freshDir = (): string => {
@@ -430,5 +435,131 @@ describe("doctor — leftover files in a bundled skill", () => {
     expect(JSON.parse(stdout).lines).toContainEqual(
       expect.objectContaining({ path: ".agents/skills/design-engineering/references/solid-motion.md", status: "untracked" })
     )
+  })
+})
+
+describe("upgrade — the orphan rule", () => {
+  const manifestPath = (dir: string) => path.join(dir, "brain", ".brain-manifest.json")
+  /** Write a file and track it in the manifest as `managed` with `hash` (default: its own). */
+  const track = (dir: string, rel: string, content: string | null, hash?: string) => {
+    if (content !== null) write(dir, rel, content)
+    const manifest = readManifest(dir)
+    manifest.files.push({ path: rel, role: "managed", hash: hash ?? contentHash(content ?? "") })
+    fs.writeFileSync(manifestPath(dir), JSON.stringify(manifest, null, 2))
+  }
+  const linesFor = (stdout: string, p: string) => JSON.parse(stdout).lines.filter((l: any) => l.path === p)
+  const tracked = (dir: string, p: string) => readManifest(dir).files.some((f: any) => f.path === p)
+
+  const retired = ".agents/skills/retired-skill"
+  const legacy = ".agents/skills/design-engineering/references/legacy/old.md"
+
+  it("removes an untouched orphan and the folders it leaves empty, after a dry run that changes nothing", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    track(dir, `${retired}/SKILL.md`, "# retired\n")
+    track(dir, `${retired}/references/notes.md`, "# notes\n")
+    track(dir, legacy, "# legacy reference\n")
+    const orphans = [`${retired}/SKILL.md`, `${retired}/references/notes.md`, legacy]
+
+    // doctor reports them and stays green
+    const before = run(["doctor", "--json"], dir)
+    expect(before.code).toBe(0)
+    for (const p of orphans) expect(linesFor(before.stdout, p)).toEqual([expect.objectContaining({ status: "orphan" })])
+
+    const manifestBefore = fs.readFileSync(manifestPath(dir), "utf8")
+    const dry = run(["upgrade", "--dry-run", "--json"], dir)
+    expect(dry.code).toBe(0)
+    for (const p of orphans) {
+      expect(linesFor(dry.stdout, p)).toEqual([expect.objectContaining({ status: "would remove" })])
+      expect(fs.existsSync(path.join(dir, p))).toBe(true)
+    }
+    expect(fs.readFileSync(manifestPath(dir), "utf8")).toBe(manifestBefore)
+
+    const real = run(["upgrade", "--json"], dir)
+    expect(real.code).toBe(0)
+    for (const p of orphans) {
+      expect(linesFor(real.stdout, p)).toEqual([expect.objectContaining({ status: "removed" })])
+      expect(fs.existsSync(path.join(dir, p))).toBe(false)
+      expect(tracked(dir, p)).toBe(false)
+    }
+    expect(fs.existsSync(path.join(dir, retired))).toBe(false)
+    expect(fs.existsSync(path.join(dir, ".agents/skills/design-engineering/references/legacy"))).toBe(false)
+    expect(fs.existsSync(path.join(dir, ".agents/skills/design-engineering/references/standards.md"))).toBe(true)
+    expect(fs.existsSync(path.join(dir, ".agents/skills"))).toBe(true)
+
+    expect(run(["doctor"], dir).code).toBe(0)
+  })
+
+  it("keeps an edited or advisor-wired orphan even with --force, and drops a missing one", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    const edited = `${retired}/SKILL.md`
+    track(dir, edited, "# retired, edited here\n", contentHash("# retired\n"))
+    const wired = `${retired}/wired.md`
+    // Same normalized hash as installed, but the advisor block holds content.
+    const wiredContent = "# wired\n\n<!-- init-brain:advisors:start -->\n- **`ux-advisor`** — flows\n<!-- init-brain:advisors:end -->\n"
+    track(dir, wired, wiredContent)
+    const missing = `${retired}/missing.md`
+    track(dir, missing, null, contentHash("# gone\n"))
+
+    const { code, stdout } = run(["upgrade", "--force", "--json"], dir)
+    expect(code).toBe(0)
+    expect(linesFor(stdout, edited)).toEqual([expect.objectContaining({ status: "orphan", note: expect.stringMatching(/locally modified, left on disk/) })])
+    expect(linesFor(stdout, wired)).toEqual([expect.objectContaining({ status: "orphan", note: expect.stringMatching(/locally modified, left on disk/) })])
+    expect(linesFor(stdout, missing)).toEqual([expect.objectContaining({ status: "orphan", note: expect.stringMatching(/missing on disk and no longer shipped/) })])
+    expect(fs.readFileSync(path.join(dir, edited), "utf8")).toBe("# retired, edited here\n")
+    expect(fs.readFileSync(path.join(dir, wired), "utf8")).toBe(wiredContent)
+    for (const p of [edited, wired, missing]) expect(tracked(dir, p)).toBe(false)
+  })
+
+  it("a scoped run leaves another skill's orphan alone and handles its own", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    track(dir, legacy, "# legacy reference\n")
+
+    const other = run(["upgrade", "--skill", "tdd", "--json"], dir)
+    expect(other.code).toBe(0)
+    expect(linesFor(other.stdout, legacy)).toEqual([])
+    expect(fs.existsSync(path.join(dir, legacy))).toBe(true)
+    expect(tracked(dir, legacy)).toBe(true)
+
+    const own = run(["upgrade", "--skill", "design-engineering", "--json"], dir)
+    expect(linesFor(own.stdout, legacy)).toEqual([expect.objectContaining({ status: "removed" })])
+    expect(fs.existsSync(path.join(dir, legacy))).toBe(false)
+  })
+})
+
+describe("upgrade and doctor — a project-owned (seed) skill folder", () => {
+  it("gets no newly shipped file, and doctor stays green before and after", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    const ab = ".agents/skills/agent-browser"
+    const newlyShipped = `${ab}/references/proxy-support.md`
+    // A project-owned copy recorded as seed, lacking a file this version ships,
+    // plus a project file of its own.
+    const manifestPath = path.join(dir, "brain", ".brain-manifest.json")
+    const manifest = readManifest(dir)
+    manifest.files = manifest.files
+      .filter((f: any) => f.path !== newlyShipped)
+      .map((f: any) => (f.path.startsWith(`${ab}/`) ? { ...f, role: "seed" } : f))
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+    fs.rmSync(path.join(dir, newlyShipped))
+    write(dir, `${ab}/references/our-login.md`, "# our login flow\n")
+
+    const before = run(["doctor", "--json"], dir)
+    expect(before.code).toBe(0)
+    const beforeLines = JSON.parse(before.stdout).lines
+    expect(beforeLines.filter((l: any) => l.path.startsWith(`${ab}/`))).toEqual([])
+
+    const up = run(["upgrade", "--json"], dir)
+    expect(up.code).toBe(0)
+    expect(JSON.parse(up.stdout).lines).toContainEqual(
+      expect.objectContaining({ path: newlyShipped, status: "kept", note: expect.stringMatching(/project-owned skill/) })
+    )
+    expect(fs.existsSync(path.join(dir, newlyShipped))).toBe(false)
+    expect(fs.existsSync(path.join(dir, `${ab}/references/our-login.md`))).toBe(true)
+    expect(readManifest(dir).files.some((f: any) => f.path === newlyShipped)).toBe(false)
+
+    expect(run(["doctor"], dir).code).toBe(0)
   })
 })
