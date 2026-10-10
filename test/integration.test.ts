@@ -268,3 +268,167 @@ describe("scan — frontend stack", () => {
     expect(stdout).toMatch(/frontend: none detected — ask the user/)
   })
 })
+
+const write = (dir: string, rel: string, content: string) => {
+  fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true })
+  fs.writeFileSync(path.join(dir, rel), content)
+}
+const readConfig = (cwd: string) => JSON.parse(fs.readFileSync(path.join(cwd, "brain", "brain.config.json"), "utf8"))
+
+describe("scan — project context", () => {
+  it("reports persona sources, the tech-debt store, the review tree, the router, and a suggested config", () => {
+    const dir = freshDir()
+    write(dir, ".claude/agents/ux-flow-strategist.md", "---\nname: ux-flow-strategist\n---\n\n# UX\n\n## The four Acme personas\n\n### Freelance\n")
+    write(dir, "brain/tech-debt/company/linkedin-sync.md", "# debt\n")
+    write(dir, "brain/specs/company/linkedin-sync/SPEC.md", "# spec\n")
+    write(dir, "brain/review/company/linkedin-sync/REPORT.md", "# report\n")
+    write(dir, "package.json", JSON.stringify({ scripts: { test: "vitest", typecheck: "tsc --noEmit" } }))
+    write(dir, "AGENTS.md", "# AGENTS.md\n\n## Gates\n\n```bash\npnpm typecheck\npnpm test\n```\n")
+    write(dir, "CLAUDE.md", "# CLAUDE.md\n\n## Gates\n\n```bash\npnpm typecheck\npnpm test\n```\n\n## Agent workflow\n\n### Step 7 — Review (optional, only on request)\n\nRun `adversarial-review` only when asked; reports go to `brain/review/<domain>/<spec>/`.\n")
+
+    const { code, stdout } = run(["scan", "--json"], dir)
+    expect(code).toBe(0)
+    const report = JSON.parse(stdout)
+    const byStatus = (s: string) => report.lines.filter((l: any) => l.status === s)
+
+    expect(byStatus("persona-source")).toEqual([
+      { path: ".claude/agents/ux-flow-strategist.md", status: "persona-source", note: 'section "The four Acme personas"' }
+    ])
+    expect(byStatus("tech-debt-store")).toEqual([{ path: "brain/tech-debt", status: "tech-debt-store", note: "1 page(s), per-spec" }])
+    expect(byStatus("review-store")[0]).toMatchObject({ path: "brain/review/", note: expect.stringMatching(/^review-tree/) })
+    const claude = byStatus("router").find((l: any) => l.path === "CLAUDE.md")
+    expect(claude.note).toMatch(/state divergent/)
+    expect(claude.note).toMatch(/review on-request/)
+    expect(claude.note).toMatch(/only here: "Agent workflow"/)
+
+    expect(report.context.router.state).toBe("divergent")
+    expect(report.context.suggestedConfig).toEqual({
+      version: 1,
+      review: { mode: "none", location: "review-tree" },
+      paths: { techDebt: "brain/tech-debt", reviews: "brain/review", personas: null }
+    })
+    expect(report.notes.join("\n")).toMatch(/config: review\.mode = "none" — CLAUDE\.md states review only on request/)
+
+    // the text report carries the same four line kinds
+    const text = run(["scan"], dir).stdout
+    for (const kind of ["persona-source", "tech-debt-store", "review-store", "router"]) expect(text).toContain(`${kind} (`)
+  })
+})
+
+describe("config lifecycle", () => {
+  it("init writes the config from flags, a re-run keeps it, config set round-trips and validates", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude", "--review-mode", "plan"], dir).code).toBe(0)
+    expect(readConfig(dir).review.mode).toBe("plan")
+    const manifest = readManifest(dir)
+    expect(fileRole(manifest, "brain/brain.config.json")).toBe("seed")
+
+    const before = fs.readFileSync(path.join(dir, "brain", "brain.config.json"), "utf8")
+    const again = run(["init", "--providers", "claude", "--review-mode", "none"], dir)
+    expect(again.code).toBe(0)
+    expect(fs.readFileSync(path.join(dir, "brain", "brain.config.json"), "utf8")).toBe(before)
+    expect(again.stdout).toMatch(/review\.mode kept at "plan"/)
+
+    const set = run(["config", "set", "review.mode", "none"], dir)
+    expect(set.code).toBe(0)
+    expect(readConfig(dir).review.mode).toBe("none")
+    expect(run(["config", "get", "review.mode"], dir).stdout.trim()).toBe("none")
+    expect(JSON.parse(run(["config", "get", "--json"], dir).stdout).config.review.mode).toBe("none")
+
+    const bad = run(["config", "set", "review.mode", "bad"], dir)
+    expect(bad.code).not.toBe(0)
+    expect(bad.stderr).toMatch(/allowed: total, plan, none/)
+    expect(readConfig(dir).review.mode).toBe("none")
+
+    const unknown = run(["config", "set", "review.depth", "1"], dir)
+    expect(unknown.code).not.toBe(0)
+    expect(unknown.stderr).toMatch(/known keys: review\.mode/)
+  })
+
+  it("upgrade on a pre-config install creates it with detected paths and review.mode total", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    // Simulate a 0.6.0 install: no config file, no manifest entry.
+    fs.rmSync(path.join(dir, "brain", "brain.config.json"))
+    const manifestPath = path.join(dir, "brain", ".brain-manifest.json")
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+    manifest.files = manifest.files.filter((f: any) => f.path !== "brain/brain.config.json")
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+    write(dir, "brain/specs/auth/login/SPEC.md", "# spec\n")
+    write(dir, "brain/review/auth/login/REPORT.md", "# report\n")
+    // doctor: no config is a note, not a problem
+    expect(run(["doctor"], dir).code).toBe(0)
+
+    const { code, stdout } = run(["upgrade", "--json"], dir)
+    expect(code).toBe(0)
+    const report = JSON.parse(stdout)
+    expect(report.lines.find((l: any) => l.path === "brain/brain.config.json")?.status).toBe("created")
+    expect(report.notes.join("\n")).toMatch(/review\.mode defaulted to total/)
+    const config = readConfig(dir)
+    expect(config.review).toEqual({ mode: "total", location: "review-tree" })
+    expect(fileRole(readManifest(dir), "brain/brain.config.json")).toBe("seed")
+
+    // An older config gains only its missing keys.
+    fs.writeFileSync(path.join(dir, "brain", "brain.config.json"), JSON.stringify({ version: 1, review: { mode: "none" } }))
+    const second = JSON.parse(run(["upgrade", "--json"], dir).stdout)
+    expect(second.lines.find((l: any) => l.path === "brain/brain.config.json")).toMatchObject({ status: "updated" })
+    expect(readConfig(dir).review).toEqual({ mode: "none", location: "review-tree" })
+    expect(readConfig(dir).paths.techDebt).toBe("brain/tech-debt")
+  })
+
+  it("doctor fails on an invalid review mode and on a configured path that does not exist", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    const configPath = path.join(dir, "brain", "brain.config.json")
+    const valid = fs.readFileSync(configPath, "utf8")
+
+    fs.writeFileSync(configPath, valid.replace('"total"', '"strict"'))
+    const strict = run(["doctor"], dir)
+    expect(strict.code).toBe(1)
+    expect(strict.stdout).toMatch(/invalid/)
+    expect(strict.stdout).toMatch(/review\.mode/)
+
+    fs.writeFileSync(configPath, valid)
+    expect(run(["config", "set", "paths.personas", "brain/personas.md"], dir).code).toBe(0)
+    const missing = run(["doctor"], dir)
+    expect(missing.code).toBe(1)
+    expect(missing.stdout).toMatch(/brain\/personas\.md\s+— configured as paths\.personas/)
+
+    write(dir, "brain/personas.md", "# Personas\n")
+    expect(run(["doctor"], dir).code).toBe(0)
+  })
+})
+
+describe("link — router states", () => {
+  it("links an identical CLAUDE.md without --force", () => {
+    const dir = freshDir()
+    write(dir, "AGENTS.md", "# Rules\n\n- run the tests\n")
+    write(dir, "CLAUDE.md", "# Rules\n\n- run the tests\n")
+    expect(run(["link", "--providers", "claude"], dir).code).toBe(0)
+    expect(fs.lstatSync(path.join(dir, "CLAUDE.md")).isSymbolicLink()).toBe(true)
+    expect(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8")).toBe("# Rules\n\n- run the tests\n")
+  })
+
+  it("never discards a differing CLAUDE.md, not even with --force", () => {
+    const dir = freshDir()
+    write(dir, "AGENTS.md", "# Rules\n\n- run the tests\n")
+    write(dir, "CLAUDE.md", "# Rules\n\n## Solid reactivity\n\n- never destructure props\n")
+    const { stdout } = run(["link", "--providers", "claude", "--force"], dir)
+    expect(stdout).toMatch(/refusing to discard differing CLAUDE\.md content/)
+    expect(fs.lstatSync(path.join(dir, "CLAUDE.md")).isSymbolicLink()).toBe(false)
+    expect(fs.readFileSync(path.join(dir, "CLAUDE.md"), "utf8")).toContain("Solid reactivity")
+  })
+})
+
+describe("doctor — leftover files in a bundled skill", () => {
+  it("lists a file the package does not ship as untracked, without failing", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    write(dir, ".agents/skills/design-engineering/references/solid-motion.md", "# old project copy\n")
+    const { code, stdout } = run(["doctor", "--json"], dir)
+    expect(code).toBe(0)
+    expect(JSON.parse(stdout).lines).toContainEqual(
+      expect.objectContaining({ path: ".agents/skills/design-engineering/references/solid-motion.md", status: "untracked" })
+    )
+  })
+})

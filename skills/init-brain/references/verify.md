@@ -8,7 +8,7 @@ Final gate. `$BRAIN doctor` covers the mechanical checks (scaffold present, no `
 $BRAIN doctor
 ```
 
-Must exit 0. `modified` findings are fine **only** if they are deliberate project customizations the user knows about — surface them. `outdated`/`missing` → run `$BRAIN upgrade` and re-check. `legacy-layout` / `missing-link` / `wrong-link` → the `.agents/` layout is incomplete; run `$BRAIN upgrade` (migrates) or `$BRAIN link --providers <ids> --force`.
+Must exit 0. `modified` findings are fine **only** if they are deliberate project customizations the user knows about — surface them. `untracked` files inside a bundled skill are leftovers of an older or hand-installed copy: resolve them per migration.md → Leftover files. `outdated`/`missing` → run `$BRAIN upgrade` and re-check. `legacy-layout` / `missing-link` / `wrong-link` → the `.agents/` layout is incomplete; run `$BRAIN upgrade` (migrates) or `$BRAIN link --providers <ids> --force`.
 
 > `$SKILLS_DIR` is the canonical **`.agents/skills`** (the real files live there; each provider's `skills/` is a symlink into it).
 
@@ -31,13 +31,26 @@ grep -rInE "apps/(api|website|spa)|db-schema-architect|ux-research-advisor|opens
 >
 > Note: `$agent-browser` is a bundled suite tool, so its references in `create-plan` / `implement-spec` are expected.
 
-The agent-browser CLI is optional (only needed for browser/mixed validation):
+The agent-browser CLI is optional, but two things need it: browser/mixed validation, and `ux-advisor`'s review of a prototype winner (without it the review runs `DEGRADED`, from the code only):
 
 ```bash
-command -v agent-browser >/dev/null 2>&1 && echo "ok  agent-browser CLI" || echo "note: agent-browser CLI not installed (npm i -g agent-browser when browser validation is needed)"
+command -v agent-browser >/dev/null 2>&1 && echo "ok  agent-browser CLI" || echo "note: agent-browser CLI not installed (npm i -g agent-browser for browser validation and the ux-advisor review)"
 ```
 
-## 3. Stack profile
+## 3. Project config
+
+```bash
+$BRAIN config get
+```
+
+Check it against the project, by judgment:
+
+- `paths.techDebt` is where the tech-debt pages actually are, and `review.location` / `paths.reviews` match where the existing `REPORT.md` files live (`$BRAIN scan` → `config:` note says "agrees with detection", or every disagreement was a deliberate choice).
+- `paths.personas` points at a real page holding the personas (or is `null`, and the user knows `ux-advisor` will characterize users generically).
+- `review.mode` is the one the user chose, and the root `AGENTS.md` no longer states a contradicting review policy (references/router.md §3).
+- No suite skill or shipped agent was edited to encode a project fact: `$BRAIN doctor` shows no `modified` under them.
+
+## 4. Stack profile
 
 ```bash
 test -f brain/chore/motion-stack.md && echo "ok  stack profile" || echo "WARN: no brain/chore/motion-stack.md — run Step 4"
@@ -50,7 +63,7 @@ Then read it and check by judgment:
 - It is listed under "Chore" in `brain/index.md`.
 - The installed `design-engineering` skill is unmodified (`$BRAIN doctor` shows no `modified` under it) — the adaptation lives in the profile only.
 
-## 4. Print the report
+## 5. Print the report
 
 Summarize for the user:
 
@@ -59,8 +72,10 @@ Summarize for the user:
 - **Skills:** installed once into `.agents/skills` — list installed vs adopted vs kept (from the `brain init` report)
 - **Agents:** the four shipped advisors installed once into `.agents/agents` (`ux-advisor`, `design-engineer`, `adversarial-verifier`, `review-classifier`)
 - **Providers:** which were wired, and the symlinks created (`.claude/skills → ../.agents/skills`, `.claude/agents → ../.agents/agents`, `CLAUDE.md → AGENTS.md`, …)
+- **Project config:** the resolved `brain/brain.config.json` values, each with its reason (review mode, review location, tech-debt store, personas source), plus what was extracted or migrated to get there
+- **Router:** its class (stub / foreign / partial / complete), what was added, and which overlapping sections were replaced by pointers
 - **Migration only:** what was moved (source → dest) and what was deleted
 - **Stack profile:** the detected frontend stack, whether the references apply as written (React) or through a researched translation, any `unverified` rows, and the open decisions (libraries the stack lacks — nothing installed)
-- **Advisors:** the shipped four are wired into the skill bodies by default; list any *additional* project advisors detected and where each was wired (or "none beyond the shipped four")
+- **Advisors:** the shipped four are wired into the skill bodies by default; list any *additional* project advisors detected and where each was wired (or "none beyond the shipped four"), and each legacy twin with what happened to it
 - **Maintenance:** future syncs are `$BRAIN upgrade`; health checks are `$BRAIN doctor`
-- **Next step:** run `create-spec` to author the first `SPEC.md`, then `create-plan` → `implement-spec` → `docs-maintenance`. Fill in the project's real gates (build/test/lint, review) in the repo-root `AGENTS.md`.
+- **Next step:** run `create-spec` to author the first `SPEC.md`, then `create-plan` → `implement-spec` → `docs-maintenance` (`prototype` first, when a UI direction is open). Fill in the project's real gates (build/test/lint) in the repo-root `AGENTS.md`; the review policy is `review.mode`.

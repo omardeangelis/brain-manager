@@ -8,6 +8,7 @@ Every worker brief should include:
 
 - plan file or spec-folder context
 - relevant goals or overview from the plan
+- the relevant `FLOW.md` slice when the task touches a user-facing surface and the spec folder has one: the rows (states, accessibility, persona dependencies) that cite this task's acceptance criteria — or, in an older `FLOW.md`, the happy path, error paths and edge cases those criteria cover
 - task id and task name
 - task dependencies
 - related tasks when they matter

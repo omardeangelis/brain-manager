@@ -18,11 +18,11 @@ Each verifier has a clean context. Brief it self-contained with **only**:
 
 - **The rubric (its charter).** The single concern from `passes[].charter`, stated as the criteria to judge against. This is the verifier's RUBRIC USED.
 - **The artifact slice.** The portion of the diff/files relevant to that charter (and the files it must read to judge them). Give it enough surrounding context to judge correctly, but keep it scoped to its concern.
-- **Case B only — the acceptance contract.** The relevant `SPEC.md` acceptance criteria and the matching `FLOW.md` happy path / error paths / edge cases the slice must satisfy. An unhandled error path or empty/permission/async edge case is a finding, not a nice-to-have.
+- **Case B only — the acceptance contract.** The relevant `SPEC.md` acceptance criteria the slice must satisfy; an unmet criterion is a finding, at least MAJOR. Add the `FLOW.md` rows that cite those criteria only to locate them in the flow (which state, which entry point). A `FLOW.md` row with no criterion behind it is not part of the contract and never a finding by itself.
 - **Motion-craft pass only — the review bar.** When the rubric chartered a pass on animation/motion code, give that verifier the `design-engineer` agent's review bar as its rubric: `.agents/skills/design-engineering/references/review.md` (with `standards.md` for exact values; findings table + six-tier verdict + Block/Approve), falling back to the baseline motion standards in `.agents/agents/design-engineer.md` only when the skill is missing. Project tokens and documented motion decisions in `brain/chore/` win over both.
 - **The project non-negotiables the concern implicates.** Read them from the project's own sources at runtime — do not assume a stack:
-  - the root `AGENTS.md` — the project's gates (build/test/lint commands, review gates, contract/codegen chains) and any explicit coding/security rules;
-  - `brain/` — the touched domain's contract (`domains/<domain>/<domain>-contract.md`: Owns / Does Not Own / Invariants), relevant concept/flow pages, and known `tech-debt/`;
+  - the root `AGENTS.md` (fallback: `CLAUDE.md` when no `AGENTS.md` exists) — the project's gates (build/test/lint commands, contract/codegen chains) and any explicit coding/security rules;
+  - `brain/` — the touched domain's contract (`domains/<domain>/<domain>-contract.md`: Owns / Does Not Own / Invariants), relevant concept/flow pages, and known drift in `<techDebt>/`;
   - generic engineering invariants that always apply: correctness, no secrets in code, untrusted input is validated/sanitized, errors and edge cases are handled, public contracts are honored, and the change passes the project's declared gates.
 
   Name only the non-negotiables that are actually in scope for this pass — enough for the verifier to judge against the project's real standards, not a generic checklist.
