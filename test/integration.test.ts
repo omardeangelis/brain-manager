@@ -437,6 +437,48 @@ describe("ui-reviewer — the agent ships with ui-review", () => {
   })
 })
 
+describe("prototype — Phase 6: two reviewers, one loop", () => {
+  it("names both reviewers wherever it hands the winner on, and states the shared loop", () => {
+    const dir = freshDir()
+    const skills = path.join(dir, "skills")
+    expect(run(["install-skill", "prototype", "--skills-dir", skills], dir).code).toBe(0)
+    const md = fs.readFileSync(path.join(skills, "prototype", "SKILL.md"), "utf8")
+    const between = (start: string, end: string) => md.split(start)[1]!.split(end)[0]!
+    const lineOf = (prefix: string) => md.split("\n").find((l) => l.startsWith(prefix)) ?? prefix
+
+    // The contract, the brain-flow line and the keep command name both reviewers.
+    for (const prefix of ["- **Delegates to:**", "- **Downstream:**", "- **Promotion (Phase 6)", "| `keep <variant>` |"]) {
+      const line = lineOf(prefix)
+      for (const agent of ["`ux-advisor`", "`ui-reviewer`"]) expect(line, prefix).toContain(agent)
+    }
+
+    // The harness check loads the guide of the installed CLI.
+    expect(between("### Phase 5", "### Phase 6")).toContain(
+      "Before the first `agent-browser` command, run `agent-browser skills get core` and follow it: it is the usage guide for the installed version."
+    )
+
+    const phase6 = between("### Phase 6", "## In a brain project")
+    // Spawn: both, in parallel, on the winner only, each on its own session; the UI bar in the brief.
+    expect(phase6).toContain(
+      "UX → `ux-advisor` · static UI of the rendered page → `ui-reviewer` (bar and probes: the `ui-review` skill) · motion and interaction craft → `design-engineer` (`design-engineering`)"
+    )
+    for (const needle of ["in parallel", "winner only", "--session ux-<slug>", "--session ui-<slug>", "`brain/chore/ui-review.md`"]) {
+      expect(phase6, needle).toContain(needle)
+    }
+    // When an agent can't run.
+    expect(phase6).toMatch(/`ui-reviewer` is not installed, skip it and say so/)
+    expect(phase6).toContain("`.agents/agents/ui-reviewer.md`")
+    // One combined verdict, the stricter of the two.
+    expect(phase6).toContain("the stricter of the two")
+    // The shared loop: ≤ 3 changes from both reviews, ≤ 2 rounds, both regression passes.
+    for (const needle of ["at most 3", "from both reviews", "at most 2 rounds", "**both** run their regression pass", "Checked and clean"]) {
+      expect(phase6, needle).toContain(needle)
+    }
+    // On stop: both reviews saved verbatim, deleted with the surface.
+    expect(phase6).toMatch(/`UI-REVIEW\.md` next to `UX-REVIEW\.md`/)
+  })
+})
+
 describe("scan — frontend stack", () => {
   it("reports a non-React stack and asks for the design-engineering adaptation", () => {
     const dir = freshDir()
