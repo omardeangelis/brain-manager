@@ -100,6 +100,35 @@ describe("fresh init — claude (skills-capable + agent-capable)", () => {
     expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
     expect(run(["doctor"], dir).code).toBe(0)
   })
+
+  it("`init --providers claude` installs `ui-review` with `scripts/probe.sh` and `fixture/index.html`", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+
+    // Every file the package ships under ui-review/ (probes, scripts, fixture,
+    // bar), byte-identical and tracked as managed, and nothing else.
+    const listFiles = (root: string): Array<string> =>
+      (fs.readdirSync(root, { recursive: true, withFileTypes: true }) as Array<fs.Dirent>)
+        .filter((e) => e.isFile())
+        .map((e) => path.relative(root, path.join(e.parentPath, e.name)))
+        .sort()
+    const bundled = path.join(REPO_ROOT, "assets", "skills", "ui-review")
+    const installed = path.join(dir, ".agents", "skills", "ui-review")
+    const shipped = listFiles(bundled)
+    expect(listFiles(installed)).toEqual(shipped)
+    for (const rel of ["SKILL.md", "scripts/probe.sh", "scripts/axe.sh", "fixture/index.html", "fixture/expected.json"]) {
+      expect(shipped, rel).toContain(rel)
+    }
+    expect(shipped.filter((f) => f.startsWith("probes/") && f.endsWith(".js"))).toHaveLength(7)
+    const manifest = readManifest(dir)
+    for (const rel of shipped) {
+      expect(fs.readFileSync(path.join(installed, rel), "utf8"), rel).toBe(fs.readFileSync(path.join(bundled, rel), "utf8"))
+      expect(fileRole(manifest, `.agents/skills/ui-review/${rel}`), rel).toBe("managed")
+    }
+    // Claude Code reaches it through the skills symlink.
+    expect(fs.existsSync(path.join(dir, ".claude", "skills", "ui-review", "fixture", "index.html"))).toBe(true)
+    expect(run(["doctor"], dir).code).toBe(0)
+  })
 })
 
 describe("fresh init — codex (router-only, no agent format)", () => {
@@ -1228,5 +1257,52 @@ describe("init-brain — the shipped lists, the UI-review twins and the verify s
     for (const needle of ["stub", "`LICENSE`", "agent-browser skills get core", "`seed`", "`kept`", "`adopted`", "managed"]) {
       expect(stub, needle).toContain(needle)
     }
+  })
+})
+
+describe("README and EVAL — the shipped counts and lists", () => {
+  const bundledSkills = fs.readdirSync(path.join(REPO_ROOT, "assets", "skills")).sort()
+  const bundledAgents = fs
+    .readdirSync(path.join(REPO_ROOT, "assets", "agents"))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => f.slice(0, -".md".length))
+    .sort()
+  const readme = fs.readFileSync(path.join(REPO_ROOT, "README.md"), "utf8")
+  const evalMd = fs.readFileSync(path.join(REPO_ROOT, "test", "EVAL.md"), "utf8")
+  const lineOf = (text: string, prefix: string) => text.split("\n").find((l) => l.startsWith(prefix)) ?? ""
+  const section = (text: string, heading: string) => (text.split(heading)[1] ?? "").split("\n## ")[0]!
+
+  it("the README and EVAL counts agree with assets/, and every shipped skill and advisor is named", () => {
+    const skills = bundledSkills.length
+    const agents = bundledAgents.length
+    expect([skills, agents]).toEqual([12, 5])
+
+    // The init row of the command table and the repo tree.
+    const initRow = lineOf(readme, "| `brain init` |")
+    expect(initRow).toContain(`install the ${skills} skills`)
+    expect(initRow).toContain(`the ${agents} advisor subagents`)
+    expect(readme).toMatch(new RegExp(`agents/ +# the ${agents} shipped advisor subagents`))
+    expect(readme).toMatch(new RegExp(`skills/ +# the ${skills} bundled suite skills`))
+
+    // What ends up in a project: every bundled skill, and the advisor bullet with every agent.
+    const produces = section(readme, "## What ends up in a project")
+    for (const skill of bundledSkills) expect(produces, skill).toContain(`\`${skill}\``)
+    expect(lineOf(produces, "- **Nine process skills**")).not.toBe("")
+    expect(lineOf(produces, "- **The `ui-review` reference skill**")).toContain("`ui-reviewer`")
+    const advisors = lineOf(produces, "- **Five advisor subagents**")
+    for (const agent of bundledAgents) expect(advisors, agent).toContain(`\`${agent}\``)
+    expect(lineOf(produces, "- **The `agent-browser` tool skill**")).toContain("agent-browser skills get core")
+    expect(readme).not.toMatch(/four advisor|11 skills|11 bundled|4 advisor|4 shipped/i)
+
+    // The 0.7.0 release notes name the agent, the UI pass, the stub and the orphan rule.
+    const notes = section(readme, "## Release notes — 0.7.0")
+    for (const needle of ["`ui-reviewer`", "`ui-review`", "UI pass", "agent-browser skills get core", "`orphan`"]) {
+      expect(notes, needle).toContain(needle)
+    }
+
+    // EVAL's fresh-init row.
+    const evalInit = lineOf(evalMd, "| Claude (skills + agents) |")
+    expect(evalInit).toContain(`${skills} skills`)
+    expect(evalInit).toContain(`${agents} agents`)
   })
 })
