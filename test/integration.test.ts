@@ -3,7 +3,7 @@ import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
 import { fileURLToPath } from "node:url"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { agentSkills } from "../src/core/companions.js"
 import { contentHash } from "../src/core/hash.js"
 
@@ -23,6 +23,13 @@ const BIN = path.join(REPO_ROOT, "dist", "bin.js")
 // default flakes when another suite shares the machine, such as the ui-review
 // probes, which drive a browser in parallel.
 vi.setConfig({ testTimeout: 30_000 })
+
+// The cases are synchronous (`execFileSync`), so between them the worker only
+// runs microtasks and never reads the replies to its RPC calls. Vitest times
+// those calls out after 60 s, and on a slow CI runner the file runs longer:
+// every test passes, yet the run exits 1 with `Timeout calling "onTaskUpdate"`.
+// One macrotask turn per case lets the replies in.
+afterEach(() => new Promise<void>((resolve) => setImmediate(resolve)))
 
 const tmpDirs: Array<string> = []
 const freshDir = (): string => {
