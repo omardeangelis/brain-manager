@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { ManifestEntry } from "./manifest.js"
-import { planUpgrade } from "./plan.js"
+import { ADVISORS_END, ADVISORS_START } from "./advisors.js"
+import { emptiedDirCandidates, planRuleInputs, planUpgrade } from "./plan.js"
 
 const managed = (path: string, hash: string): ManifestEntry => ({ path, role: "managed", hash })
 const seed = (path: string, hash: string): ManifestEntry => ({ path, role: "seed", hash })
@@ -8,12 +9,15 @@ const seed = (path: string, hash: string): ManifestEntry => ({ path, role: "seed
 const plan = (
   manifestFiles: Array<ManifestEntry>,
   assets: Record<string, string>,
-  disk: Record<string, string | null>
+  disk: Record<string, string | null>,
+  extra: { advisorContent?: Array<string>; seedSkillDirs?: Array<string> } = {}
 ) =>
   planUpgrade({
     manifestFiles,
     assetHashes: new Map(Object.entries(assets)),
-    diskHashes: new Map(Object.entries(disk))
+    diskHashes: new Map(Object.entries(disk)),
+    advisorContent: new Set(extra.advisorContent ?? []),
+    seedSkillDirs: new Set(extra.seedSkillDirs ?? [])
   })
 
 const only = (actions: ReturnType<typeof plan>, path: string) => {
@@ -43,9 +47,119 @@ describe("planUpgrade — managed files", () => {
     expect(only(actions, "a")).toMatchObject({ _tag: "Restore", role: "managed" })
   })
 
-  it("flags manifest entries the package no longer ships as orphans", () => {
+})
+
+describe("planUpgrade — managed files the package no longer ships", () => {
+  it("an untouched managed file the package no longer ships is planned for removal", () => {
     const actions = plan([managed("gone", "h1")], {}, { gone: "h1" })
-    expect(only(actions, "gone")._tag).toBe("Orphan")
+    expect(only(actions, "gone")._tag).toBe("Remove")
+  })
+
+  it("keeps an edited orphan on disk", () => {
+    const actions = plan([managed("gone", "h1")], {}, { gone: "h2" })
+    expect(only(actions, "gone")._tag).toBe("OrphanModified")
+  })
+
+  it("treats an orphan whose advisor block holds content as modified, though its hash matches", () => {
+    const actions = plan([managed("gone", "h1")], {}, { gone: "h1" }, { advisorContent: ["gone"] })
+    expect(only(actions, "gone")._tag).toBe("OrphanModified")
+  })
+
+  it("reports an orphan missing on disk without removing anything", () => {
+    const actions = plan([managed("gone", "h1")], {}, { gone: null })
+    expect(only(actions, "gone")._tag).toBe("OrphanMissing")
+  })
+
+  it("leaves seed entries the package no longer ships to the seed rules", () => {
+    const actions = plan([seed("brain/old.md", "h1")], {}, { "brain/old.md": "h1" })
+    expect(only(actions, "brain/old.md")._tag).toBe("KeepLocal")
+  })
+})
+
+describe("planUpgrade — the seed-skill rule", () => {
+  const dir = ".agents/skills/agent-browser"
+
+  it("skips a new bundled path under a seed-owned skill folder", () => {
+    const actions = plan(
+      [seed(`${dir}/SKILL.md`, "h1")],
+      { [`${dir}/SKILL.md`]: "h9", [`${dir}/LICENSE`]: "h2" },
+      { [`${dir}/SKILL.md`]: "h1", [`${dir}/LICENSE`]: null },
+      { seedSkillDirs: [dir] }
+    )
+    expect(only(actions, `${dir}/LICENSE`)._tag).toBe("SkipSeed")
+    expect(only(actions, `${dir}/SKILL.md`)._tag).toBe("KeepLocal")
+  })
+
+  it("skips it even when a file already sits at that path", () => {
+    const actions = plan([], { [`${dir}/LICENSE`]: "h2" }, { [`${dir}/LICENSE`]: "h3" }, { seedSkillDirs: [dir] })
+    expect(only(actions, `${dir}/LICENSE`)._tag).toBe("SkipSeed")
+  })
+
+  it("installs a new bundled path under a managed skill folder", () => {
+    const actions = plan(
+      [managed(".agents/skills/tdd/SKILL.md", "h1")],
+      { ".agents/skills/tdd/SKILL.md": "h1", ".agents/skills/tdd/new.md": "h2" },
+      { ".agents/skills/tdd/SKILL.md": "h1", ".agents/skills/tdd/new.md": null },
+      { seedSkillDirs: [dir] }
+    )
+    expect(only(actions, ".agents/skills/tdd/new.md")._tag).toBe("Install")
+  })
+})
+
+describe("planRuleInputs", () => {
+  const skills = ".agents/skills"
+
+  it("lists only skill folders whose entries are all seed", () => {
+    const { seedSkillDirs } = planRuleInputs({
+      manifestFiles: [
+        seed(`${skills}/agent-browser/SKILL.md`, "h"),
+        seed(`${skills}/agent-browser/references/a.md`, "h"),
+        managed(`${skills}/tdd/SKILL.md`, "h"),
+        seed(`${skills}/mixed/SKILL.md`, "h"),
+        managed(`${skills}/mixed/b.md`, "h"),
+        seed("brain/index.md", "h")
+      ],
+      skillsDir: skills,
+      diskContent: new Map()
+    })
+    expect([...seedSkillDirs]).toEqual([`${skills}/agent-browser`])
+  })
+
+  it("never lists a folder with no entries (a brand-new bundled skill)", () => {
+    const { seedSkillDirs } = planRuleInputs({ manifestFiles: [], skillsDir: skills, diskContent: new Map() })
+    expect(seedSkillDirs.size).toBe(0)
+  })
+
+  it("lists the paths whose raw content holds a non-placeholder advisor block", () => {
+    const block = (inner: string) => `# Skill\n\n${ADVISORS_START}\n${inner}\n${ADVISORS_END}\n`
+    const { advisorContent } = planRuleInputs({
+      manifestFiles: [],
+      skillsDir: skills,
+      diskContent: new Map<string, string | null>([
+        ["wired", block("- ux-advisor — UX flows")],
+        ["placeholder", block("_No project advisor agents detected yet._")],
+        ["empty", block("")],
+        ["plain", "# no markers\n"],
+        ["missing", null]
+      ])
+    })
+    expect([...advisorContent]).toEqual(["wired"])
+  })
+})
+
+describe("emptiedDirCandidates", () => {
+  const roots = [".agents/skills", ".agents/agents", "brain"]
+
+  it("walks up to and including the skill folder, deepest first", () => {
+    expect(emptiedDirCandidates([".agents/skills/old/references/deep/x.md", ".agents/skills/old/SKILL.md"], roots)).toEqual([
+      ".agents/skills/old/references/deep",
+      ".agents/skills/old/references",
+      ".agents/skills/old"
+    ])
+  })
+
+  it("never offers a root or anything outside the roots", () => {
+    expect(emptiedDirCandidates([".agents/agents/old.md", "brain/AGENTS.md", "elsewhere/x.md"], roots)).toEqual([])
   })
 })
 

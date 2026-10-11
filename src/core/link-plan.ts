@@ -8,6 +8,7 @@ import {
   relSymlinkTarget,
   skillCapable
 } from "./providers.js"
+import { routerDivergence, routerState } from "./router.js"
 
 /**
  * Pure planner for `brain link` (and the layout migration inside `brain upgrade`).
@@ -28,6 +29,12 @@ export interface DiskFact {
   readonly kind: PathKind
   /** The symlink's stored (relative) target — present only when kind === "symlink". */
   readonly target?: string
+  /**
+   * Text of a root router file (`AGENTS.md`, `CLAUDE.md`, …), read through a
+   * symlink. Only router facts carry it; without it a holdout file is never
+   * assumed identical to `AGENTS.md`.
+   */
+  readonly content?: string
 }
 
 export interface LinkInput {
@@ -52,6 +59,20 @@ export type LinkAction =
   | { readonly _tag: "AlreadyLinked"; readonly path: string }
   | { readonly _tag: "Conflict"; readonly path: string; readonly why: string }
   | { readonly _tag: "Skip"; readonly provider: string; readonly path: string; readonly why: string }
+
+/** Why a holdout router file cannot be linked yet: what only it carries, and how to reconcile. */
+const divergentWhy = (holdout: string, agents: DiskFact, fact: DiskFact, force: boolean): string => {
+  const reconcile = `reconcile into ${CANONICAL_ROUTER} (init-brain → router.md)`
+  if (force) return `refusing to discard differing ${holdout} content — ${reconcile} first`
+  if (agents.content === undefined || fact.content === undefined) {
+    return `real file with its own content — ${reconcile}`
+  }
+  const { claudeOnlyHeadings, similarity } = routerDivergence(agents.content, fact.content)
+  const only = claudeOnlyHeadings.length === 0
+    ? `no ${holdout}-only headings`
+    : `${holdout}-only headings: ${claudeOnlyHeadings.slice(0, 6).map((h) => `"${h}"`).join(", ")}${claudeOnlyHeadings.length > 6 ? `, +${claudeOnlyHeadings.length - 6} more` : ""}`
+  return `differs from ${CANONICAL_ROUTER} (similarity ${similarity.toFixed(2)}; ${only}) — ${reconcile}`
+}
 
 export const planLink = (input: LinkInput): Array<LinkAction> => {
   const { currentSkillsDir, disk, force, providers } = input
@@ -109,17 +130,19 @@ export const planLink = (input: LinkInput): Array<LinkAction> => {
 
   // --- router: establish the canonical AGENTS.md ---------------------------
   const router = CANONICAL_ROUTER
+  const routerFact = factOf(router)
   // Holdout root files present as real files that could seed the canonical router.
   const promotable = providers
     .map((p) => p.rootFile)
     .filter((f): f is string => f !== null && f !== router && factOf(f).kind === "file")
+  // `AGENTS.md -> <holdout>` is the reverse layout: the content lives in the
+  // holdout, so promoting it (a rename over the link) loses nothing.
+  const reverseOf = routerFact.kind === "symlink" ? promotable.find((f) => routerFact.target === f) : undefined
   const promotedFrom: string | null =
-    factOf(router).kind === "absent" ? (promotable[0] ?? null) : null
+    routerFact.kind === "absent" ? (promotable[0] ?? null) : (reverseOf ?? null)
 
-  if (factOf(router).kind === "absent") {
-    if (promotedFrom !== null) actions.push({ _tag: "PromoteRouter", from: promotedFrom, to: router })
-    else actions.push({ _tag: "MakeCanonicalRouter", path: router })
-  }
+  if (promotedFrom !== null) actions.push({ _tag: "PromoteRouter", from: promotedFrom, to: router })
+  else if (routerFact.kind === "absent") actions.push({ _tag: "MakeCanonicalRouter", path: router })
 
   // --- router: per-provider holdout symlinks -------------------------------
   for (const p of providers) {
@@ -134,14 +157,12 @@ export const planLink = (input: LinkInput): Array<LinkAction> => {
     } else if (fact.kind === "absent" || linkPath === promotedFrom) {
       // absent, or its content was just promoted into AGENTS.md → link it back
       actions.push({ _tag: "LinkRouter", provider: p.id, path: linkPath, target })
-    } else if (force) {
+    } else if (routerState({ agentsMd: routerFact, claudeMd: fact, holdout: linkPath }) === "identical") {
+      // Same content as AGENTS.md: replacing it with the link loses nothing.
       actions.push({ _tag: "LinkRouter", provider: p.id, path: linkPath, target })
     } else {
-      actions.push({
-        _tag: "Conflict",
-        path: linkPath,
-        why: `real file with its own content — reconcile it into ${router} first (or use --force)`
-      })
+      // Divergent content is never discarded, not even with --force.
+      actions.push({ _tag: "Conflict", path: linkPath, why: divergentWhy(linkPath, routerFact, fact, force) })
     }
   }
 

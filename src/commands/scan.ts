@@ -1,6 +1,8 @@
 import { Command, Options } from "@effect/cli"
 import { FileSystem, Path } from "@effect/platform"
-import { Console, Effect } from "effect"
+import { Console, Effect, Either } from "effect"
+import { CONFIG_PATH } from "../core/config.js"
+import { configDisagreements } from "../core/detect.js"
 import {
   type FrontendFinding,
   collectDeps,
@@ -11,18 +13,23 @@ import {
   stackVerdict
 } from "../core/frontend.js"
 import { MANIFEST_PATH, decodeManifest } from "../core/manifest.js"
-import { CANONICAL_SKILLS_DIR, PROVIDERS, skillCapable } from "../core/providers.js"
+import { CANONICAL_ROUTER, CANONICAL_SKILLS_DIR, PROVIDERS, skillCapable } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
+import { describeSignals } from "../core/router.js"
 import { Assets } from "../services/Assets.js"
+import { collectContext } from "../services/context.js"
 import { exists, pathFact, readTextOrNull } from "../services/fsx.js"
 
 /**
  * `brain scan` — the mechanical half of mode-detection and migration
  * discovery. It finds legacy knowledge stores, loose spec files, agent
- * definitions, the frontend stack, and installed skills, and reports them.
- * Deciding what the findings MEAN (fresh vs migration, advisor
- * classification, content mapping, adapting design-engineering to the stack)
- * is the LLM's job — feed this report to the init-brain skill.
+ * definitions, the frontend stack, installed skills, and the project context
+ * the config is built from (persona sources, the tech-debt store, review
+ * reports, the root router's state and pertinence), and reports them with a
+ * suggested config. Deciding what the findings MEAN (fresh vs migration,
+ * advisor classification, content mapping, extracting personas, reconciling
+ * the router, adapting design-engineering to the stack) is the LLM's job —
+ * feed this report to the init-brain skill.
  */
 
 const json = Options.boolean("json").pipe(
@@ -165,10 +172,36 @@ export const scanCommand = Command.make("scan", { json }, (opts) =>
     const frontends = dropNativeShells(stack)
     for (const f of frontends) lines.push({ path: f.path, status: "frontend", note: describeFinding(f) })
 
-    // --- routers + skills ----------------------------------------------------
-    for (const router of ["CLAUDE.md", "AGENTS.md"]) {
-      if (yield* exists(router)) lines.push({ path: router, status: "router" })
+    // --- project context: personas, tech debt, reviews, router ----------------
+    const context = yield* collectContext({ shippedAgents: new Set(assets.agents.keys()) })
+    for (const c of context.personas) {
+      lines.push({ path: c.path, status: "persona-source", note: c.kind === "file" ? "file" : `section "${c.heading}"` })
     }
+    for (const t of context.techDebt) {
+      lines.push({ path: t.path, status: "tech-debt-store", note: `${t.files} page(s), ${t.layout}` })
+    }
+    if (context.review.reports > 0 || (yield* exists("brain"))) {
+      const r = context.review
+      lines.push({
+        path: r.layout === "review-tree" ? `${r.reviewsDir}/` : "brain/specs/",
+        status: "review-store",
+        note: `${r.layout} — ${r.reports} REPORT.md (${r.inTree} in a review tree, ${r.inSpecFolders} in spec folders)`
+      })
+    }
+    const { router } = context
+    if (router.files.length === 0) {
+      lines.push({ path: CANONICAL_ROUTER, status: "router", note: "state none — no root router yet" })
+    }
+    for (const f of router.files) {
+      const what = f.kind === "symlink" ? `symlink → ${f.target ?? "?"}` : f.signals === null ? f.kind : describeSignals(f.signals)
+      const divergence =
+        router.divergence !== null && f.path !== CANONICAL_ROUTER
+          ? ` · differs from ${CANONICAL_ROUTER} (similarity ${router.divergence.similarity.toFixed(2)}${router.divergence.claudeOnlyHeadings.length > 0 ? `; only here: ${router.divergence.claudeOnlyHeadings.slice(0, 5).map((h) => `"${h}"`).join(", ")}` : ""})`
+          : ""
+      lines.push({ path: f.path, status: "router", note: `state ${router.state} · ${what}${divergence}` })
+    }
+
+    // --- installed skills ----------------------------------------------------
     for (const dir of SKILL_DIRS) {
       if (!(yield* exists(dir))) continue
       const installed = yield* fs.readDirectory(dir).pipe(Effect.orElseSucceed(() => [] as Array<string>))
@@ -202,12 +235,47 @@ export const scanCommand = Command.make("scan", { json }, (opts) =>
       lines.push({ path: p.dir ?? p.rootFile!, status: "provider", note: `${p.label} (${p.id}) — ${layer}; ${wired}` })
     }
 
+    // --- config: suggested (none yet), or where it disagrees with detection ---
+    if (context.config === null) {
+      notes.push(`config: no ${CONFIG_PATH} yet — \`brain init\` / \`brain upgrade\` would write:`)
+      for (const s of context.suggested.suggestions) {
+        notes.push(`config: ${s.key} = ${JSON.stringify(s.value)} — ${s.reason}`)
+      }
+    } else if (Either.isLeft(context.config)) {
+      notes.push(`config: ${CONFIG_PATH} is invalid — ${context.config.left} (fix it with \`brain config set\`)`)
+    } else {
+      const disagreements = configDisagreements(context.config.right, context.suggested)
+      notes.push(
+        disagreements.length === 0
+          ? `config: ${CONFIG_PATH} agrees with detection`
+          : `config: ${CONFIG_PATH} differs from detection — ${disagreements.join("; ")}`
+      )
+    }
     notes.push(stackVerdict(frontends))
     notes.push(
       "scan is mechanical: deciding fresh-init vs migration, which providers to wire, mapping legacy content into brain/, classifying advisor agents, and adapting design-engineering to the frontend stack is the LLM's job (see the init-brain skill)"
     )
 
-    const report = { command: "scan", lines, notes, ok: true }
+    const report = {
+      command: "scan",
+      lines,
+      notes,
+      ok: true,
+      // --json only: the full structures behind the lines above.
+      context: {
+        personas: context.personas,
+        techDebt: context.techDebt,
+        review: context.review,
+        router: context.router,
+        suggestedConfig: context.suggested.config,
+        suggestions: context.suggested.suggestions,
+        config: context.config === null
+          ? null
+          : Either.isLeft(context.config)
+            ? { error: context.config.left }
+            : context.config.right
+      }
+    }
     yield* Console.log(opts.json ? renderReportJson(report) : renderReport(report))
   })
-).pipe(Command.withDescription("Inventory the repo: legacy doc stores, loose specs, agent definitions, frontend stack, installed skills (read-only)."))
+).pipe(Command.withDescription("Inventory the repo: legacy doc stores, loose specs, agent definitions, frontend stack, installed skills, personas, tech debt, reviews, router, suggested config (read-only)."))

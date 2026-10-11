@@ -1,0 +1,434 @@
+{
+  "C01": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 7, part: card logo named as the company before the same text"
+    }
+  ],
+  "C02": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D10, part: on S5 the card goes over the header"
+    }
+  ],
+  "C03": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D2, part: closed row truncated to one line at every width"
+    }
+  ],
+  "C04": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Decisions · #5, part: field border"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D8, row: input and select border"
+    }
+  ],
+  "C05": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 2 (select trigger names)"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D6, part: select triggers named by value or placeholder"
+    }
+  ],
+  "C06": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 5 (gray-400 text)"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D8, rows: step counter, «Facoltativa»/«Da aggiungere», «premi Invio ↵»"
+    }
+  ],
+  "C07": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D13, part: M3 Numero column too narrow at 320"
+    }
+  ],
+  "C08": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D16, part: baseline in rows with the LinkedIn glyph"
+    }
+  ],
+  "C09": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D4, part: no pointer cursor and no hover state"
+    }
+  ],
+  "C10": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Not verified on device · 3 (last open row «Partita IVA»)"
+    }
+  ],
+  "C11": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Decisions · #6, part: size value over its label"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D9, part: Dimensione slot"
+    }
+  ],
+  "C12": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D6, part: help text and hints not referenced"
+    }
+  ],
+  "C13": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D16, part: suggestion button wraps and centres"
+    }
+  ],
+  "C14": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D3 (the row highlight cue cannot be seen)"
+    }
+  ],
+  "C15": [
+    {
+      "source": "notes",
+      "ref": "7"
+    },
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Decisions · #1 (closed review row layout when label, pill and value do not fit)"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D1 (closed review row layout when the value does not fit)"
+    }
+  ],
+  "C16": [
+    {
+      "source": "notes",
+      "ref": "1"
+    },
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Decisions · #2, part: a click on another row is lost (open row closes on blur, rows move)"
+    }
+  ],
+  "C17": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 7, part: ImportedBadge read as image «LinkedIn» plus its text"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D6, part: ImportedBadge reads «LinkedIn 9 dati da LinkedIn»"
+    }
+  ],
+  "C18": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Decisions · #3 (what a closed row's button announces)"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D5 (accessible names of review rows)"
+    }
+  ],
+  "C19": [
+    {
+      "source": "notes",
+      "ref": "4"
+    }
+  ],
+  "C20": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 11, part: narrow footers (buttons on 2 lines, footer overflow at 1.25×)"
+    }
+  ],
+  "C21": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D13, part: S1 placeholder"
+    }
+  ],
+  "C22": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D6, part: required fields (asterisk in the name, no required state)"
+    }
+  ],
+  "C23": [
+    {
+      "source": "notes",
+      "ref": "2"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D2, part: opened, it becomes a single-line input"
+    }
+  ],
+  "C24": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D8, row: idle build-log row (S4)"
+    }
+  ],
+  "C25": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Decisions · #4 (primary blue on text and fills)"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D8, rows: primary button label, outline «Cerca i freelance», «N dati da LinkedIn» badge, suggestion"
+    }
+  ],
+  "C26": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D7, part: rows, suggestion and footer links get the browser default outline"
+    }
+  ],
+  "C27": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D9, part: tags slot"
+    }
+  ],
+  "C28": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D12 (global footer against the min-h-screen shell)"
+    }
+  ],
+  "C29": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Decisions · #2, part: Tab from the open Indirizzo input closes the row and loses the suggestion"
+    }
+  ],
+  "C30": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D13, part: mixed field sizes"
+    }
+  ],
+  "C31": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D15, part: iOS Safari zoom on inputs under 16 px"
+    }
+  ],
+  "C32": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 4 (`<html lang>`)"
+    }
+  ],
+  "C33": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 1 (`ul li` review rows, hit area)"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D4, part: only the middle strip of the row opens it"
+    }
+  ],
+  "C34": [
+    {
+      "source": "notes",
+      "ref": "5"
+    }
+  ],
+  "C35": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 10 (S2 heading)"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D6, part: S2 only heading is an h3"
+    }
+  ],
+  "C36": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Decisions · #6, part: success screen wider than the viewport"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D9, part: horizontal scroll at 320"
+    }
+  ],
+  "C37": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Not verified on device · 2 (suggestion button tap)"
+    }
+  ],
+  "C38": [
+    {
+      "source": "notes",
+      "ref": "3"
+    }
+  ],
+  "C39": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D11 (scroll position carried across screen swaps)"
+    }
+  ],
+  "C40": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Not verified on device · 1 (`#li-company-url` focused on mount)"
+    }
+  ],
+  "C41": [
+    {
+      "source": "notes",
+      "ref": "6"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D16, part: S3 heading and badge wrap"
+    },
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 11, part: heading badge on 2 lines"
+    }
+  ],
+  "C42": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D13, part: M3 select and input heights"
+    }
+  ],
+  "C43": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 6 (destructive text)"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D8, rows: destructive alert, VAT error line, required asterisk"
+    }
+  ],
+  "C44": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 9 (S3b VAT pre-check jump)"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D14, part: VAT check line pushes content down"
+    }
+  ],
+  "C45": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D10, part: zero gap between header and content"
+    }
+  ],
+  "C46": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 3 (`#f-description` label)"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D6, part: M4 textarea has no label"
+    }
+  ],
+  "C47": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Decisions · #5, part: focus ring"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D7, part: design-system controls draw a ring under 3:1"
+    }
+  ],
+  "C48": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Mechanical fixes · line 8 (`#li-company-url` in S1b, invalid state not exposed)"
+    }
+  ],
+  "C49": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D16, part: S2 at 320×568"
+    }
+  ],
+  "C50": [
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D16, part: ghost buttons at the start of a row"
+    }
+  ],
+  "notesHash": {
+    "specs/ui-reviewer/benchmark/maintainer-notes.md": "275f1e322dcd078774f949358111846162837320b9afa99d01c3e523b59dafd5",
+    "specs/ui-reviewer/benchmark/maintainer-notes-1.png": "e40df0235ebc1111c483b6719f94a69ade2bc201fe71b7a3ee2b2c07232d0dac"
+  },
+  "counts": {
+    "notes": 7,
+    "run-ui-reviewer": 20,
+    "run-control": 38
+  },
+  "countingNotes": {
+    "notes": "7 numbered notes, none split (note 6 names one failure, wrapping, on the S3 heading row).",
+    "run-ui-reviewer": "6 Decision rows + 11 Mechanical-fix lines + 3 Not-verified-on-device hypotheses. Rows that bundle several failures (Decisions #2, #5, #6; Mechanical fixes lines 7, 11) map to one candidate per failure ('part:' in the ref).",
+    "run-control": "Each distinct defect claimed in D1-D16: D1 1, D2 2, D3 1, D4 2, D5 1, D6 6, D7 2, D8 5 (grouped by token: primary, gray-400, destructive, input border, idle build-log row), D9 3, D10 2, D11 1, D12 1, D13 4, D14 1, D15 1, D16 5.",
+    "shuffle": "Candidates ordered by SHA-256 of their pool.md text, then numbered."
+  },
+  "excluded": [
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Prototype changes 1-3",
+      "reason": "restate Decisions #1, #2, #6; not findings by definition"
+    },
+    {
+      "source": "run-ui-reviewer",
+      "ref": "Open questions 1-3, Checked and clean, Not tested",
+      "reason": "not findings by definition"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D4, 'the row is under 44 px on touch'",
+      "reason": "context for D4 under an advisory bar, not claimed as a failure"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D14, 'opening a row grows the page'",
+      "reason": "stated as expected, not claimed as a defect"
+    },
+    {
+      "source": "run-control",
+      "ref": "Decisions the project must make · D15, engines",
+      "reason": "coverage statement, not a defect"
+    },
+    {
+      "source": "run-control",
+      "ref": "Handed off (observed, not static UI)",
+      "reason": "declared out of the run's scope (UX, motion, harness)"
+    },
+    {
+      "source": "run-control",
+      "ref": "Not checked",
+      "reason": "coverage statement"
+    }
+  ]
+}

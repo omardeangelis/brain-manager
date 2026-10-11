@@ -40,10 +40,11 @@ Normalize to the containing spec folder before doing any work.
 
 Read, in this order:
 
-1. `brain/AGENTS.md`
-2. `brain/specs/<domain>/<spec>/SPEC.md`
-3. `brain/specs/<domain>/<spec>/PLAN.md`
-4. `brain/specs/<domain>/<spec>/IMPLEMENTATION-NOTES.md` if present
+1. `brain/AGENTS.md`, then `brain/brain.config.json` (keys in `brain/AGENTS.md` → Project configuration). If it is absent, use the defaults listed there.
+2. `brain/specs/<domain>/<spec>/SPEC.md` — its acceptance criteria are the contract.
+3. `brain/specs/<domain>/<spec>/FLOW.md` if present — the flow map `create-spec` wrote from the `ux-advisor` review of the prototype. It locates the user-observable criteria (states, accessibility, persona dependencies) in the flow; for a task touching a UI surface, read the rows that cite its criteria. An older `FLOW.md` (Error paths · Edge cases) is read the same way, against the `SPEC.md` criteria.
+4. `brain/specs/<domain>/<spec>/PLAN.md`
+5. `brain/specs/<domain>/<spec>/IMPLEMENTATION-NOTES.md` if present
 
 If package or framework behavior matters, inspect source with your code-search tool (or Context7 for library docs / web search) before guessing.
 
@@ -57,9 +58,9 @@ Use [../assets/IMPLEMENTATION-NOTES-TEMPLATE.md](../assets/IMPLEMENTATION-NOTES-
 
 ## 5. Prepare the tech-debt ledger
 
-Persistent implementation drift belongs inside brain, in:
+Persistent implementation drift belongs in the project's tech-debt store (`paths.techDebt`, default `brain/tech-debt`), in:
 
-`brain/tech-debt/<domain>/<spec>.md`
+`<techDebt>/<domain>/<spec>.md`
 
 Use it only for durable drift that should inform later work on the same spec:
 
@@ -77,8 +78,9 @@ Before starting any task whose `location` matches a project advisor trigger, del
 If this project defines advisor agents (see `## Project Advisors`), delegate to the matching one before starting a task whose location it owns:
 
 - **the data/schema layer** → invoke a project advisor agent (see the skill's `## Project Advisors` section, populated by init-brain) via the `Agent` tool. Brief it with the task description, the proposed schema change, and any relevant SPEC excerpt. Apply its recommendations (column types, nullability, FK cascades, index coverage, migration reversibility) before writing the RED test for that task.
-- **a user-facing app surface** → if implementation reveals UX friction not anticipated in the spec, pause and invoke a project advisor agent (see the skill's `## Project Advisors` section, populated by init-brain) via the `Agent` tool. Apply its recommendations or log the deviation to `IMPLEMENTATION-NOTES.md` if you override them.
-- **motion / UI polish** (a task with motion targets or `review_mode: browser`, or an animation decision the plan left open) → invoke the shipped **`design-engineer`** agent via the `Agent` tool. Brief it with the task, the target values from `PLAN.md`, and the components involved; apply its exact values (easing, duration, origin, reduced-motion) or log the deviation to `IMPLEMENTATION-NOTES.md`.
+- **a user-facing app surface** → no advisor: the UX review ran on the prototype before the spec. If implementation reveals friction no acceptance criterion covers, log it in `IMPLEMENTATION-NOTES.md` and raise it with the user instead of widening the scope.
+- **static UI** (placement, widths and wrapping, contrast, focus-indicator visibility, target size, accessible names) → no advisor: `ui-reviewer` reviewed the prototype before the spec, and its decisions are acceptance criteria with plan tasks. On the implemented change, the UI pass of `adversarial-review` verifies static UI.
+- **motion and interaction craft** (a task with motion targets, or an animation decision the plan left open) → invoke the shipped **`design-engineer`** agent via the `Agent` tool. Brief it with the task, the target values from `PLAN.md`, and the components involved; apply its exact values (easing, duration, origin, reduced-motion) or log the deviation to `IMPLEMENTATION-NOTES.md`.
 
 Skipping an advisor when its trigger fires must be justified in the conversation (e.g., "schema change is a trivial NOT NULL → NULL flip, advisor pass skipped"). Silent skips are not allowed.
 
@@ -122,7 +124,7 @@ Do not fake completion.
 Use the task `review_mode`:
 
 - `cli`: tests, commands, type-checks, API calls, or non-visual checks
-- `browser`: browser validation through `$agent-browser` (or another browser-driving tool if unavailable)
+- `browser`: browser validation through `$agent-browser` (or another browser-driving tool if unavailable). Before the first `agent-browser` command, run `agent-browser skills get core` and follow it: it is the usage guide for the installed version.
 - `mixed`: both
 
 If running inside a worktree and `portless` is available, prefer it for server-based validation to avoid port conflicts.
@@ -134,6 +136,8 @@ Re-read `SPEC.md` acceptance criteria and mark each one:
 - met
 - unmet
 - blocked
+
+When the spec folder has a `FLOW.md`, use it to find where each criterion lives in the flow, and check every criterion it cites: an unhandled state, accessibility fix or persona hand-off it maps counts as an unmet criterion, not a nice-to-have. A `FLOW.md` row that cites no criterion is not part of the audit. For an older `FLOW.md`, check its error paths and edge cases only where a criterion covers them.
 
 Record a reason for every unmet or blocked item in `IMPLEMENTATION-NOTES.md`.
 

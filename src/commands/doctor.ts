@@ -1,19 +1,24 @@
 import { Command, Options } from "@effect/cli"
 import { FileSystem } from "@effect/platform"
-import { Console, Effect } from "effect"
+import { Console, Effect, Either } from "effect"
+import { CONFIG_PATH, defaultConfig } from "../core/config.js"
 import { contentHash } from "../core/hash.js"
 import { MANIFEST_PATH, decodeManifest, reconcileRoles } from "../core/manifest.js"
-import { planUpgrade } from "../core/plan.js"
+import { planRuleInputs, planUpgrade } from "../core/plan.js"
 import { CANONICAL_AGENTS_DIR, CANONICAL_SKILLS_DIR } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
 import { Assets, type AssetFile } from "../services/Assets.js"
+import { readConfig } from "../services/context.js"
 import { exists, pathFact, readTextOrNull, walkFiles } from "../services/fsx.js"
 
 /**
- * `brain doctor` — read-only health check: brain structure, unstamped
- * placeholders, manifest presence, and the managed files' three-way state
- * (same planner as `upgrade`, but nothing is written). Exit code 1 when
- * problems are found, so it is scriptable.
+ * `brain doctor` — read-only health check: the project config (valid, and
+ * its configured paths exist), brain structure, unstamped placeholders,
+ * manifest presence, and the managed files' three-way state (same planner and
+ * rule inputs as `upgrade`, but nothing is written). Files the package no
+ * longer ships are reported as `orphan` and a project-owned skill folder is
+ * skipped; neither counts as a problem. Exit code 1 when problems are found, so
+ * it is scriptable.
  */
 
 const json = Options.boolean("json").pipe(
@@ -26,7 +31,8 @@ const REQUIRED_FILES = [
   "brain/index.md",
   "brain/log.md"
 ]
-const REQUIRED_DIRS = ["brain/raw", "brain/specs", "brain/domains", "brain/chore", "brain/tech-debt"]
+/** Plus the tech-debt dir, which comes from the config (`paths.techDebt`). */
+const REQUIRED_DIRS = ["brain/raw", "brain/specs", "brain/domains", "brain/chore"]
 
 export const doctorCommand = Command.make("doctor", { json }, (opts) =>
   Effect.gen(function* () {
@@ -34,6 +40,26 @@ export const doctorCommand = Command.make("doctor", { json }, (opts) =>
     const lines: Array<ReportLine> = []
     const notes: Array<string> = []
     let problems = 0
+
+    // --- project config ---------------------------------------------------
+    const config = yield* readConfig
+    let techDebtDir = defaultConfig.paths.techDebt
+    if (config === null) {
+      notes.push(`no ${CONFIG_PATH} — defaults apply (\`brain upgrade\` writes one from the project)`)
+    } else if (Either.isLeft(config)) {
+      lines.push({ path: CONFIG_PATH, status: "invalid", note: `${config.left} — fix it with \`brain config set\`` })
+      problems++
+    } else {
+      const c = config.right
+      techDebtDir = c.paths.techDebt
+      lines.push({ path: CONFIG_PATH, status: "ok", note: `review.mode ${c.review.mode}, review.location ${c.review.location}` })
+      const configured: Array<[string, string | null]> = [["paths.reviews", c.paths.reviews], ["paths.personas", c.paths.personas]]
+      for (const [key, value] of configured) {
+        if (value === null || (yield* exists(value))) continue
+        lines.push({ path: value, status: "missing", note: `configured as ${key} in ${CONFIG_PATH}` })
+        problems++
+      }
+    }
 
     // --- structure -----------------------------------------------------
     for (const file of REQUIRED_FILES) {
@@ -44,7 +70,7 @@ export const doctorCommand = Command.make("doctor", { json }, (opts) =>
         problems++
       }
     }
-    for (const dir of REQUIRED_DIRS) {
+    for (const dir of [...REQUIRED_DIRS, techDebtDir]) {
       if (yield* exists(dir)) {
         lines.push({ path: `${dir}/`, status: "ok" })
       } else {
@@ -87,13 +113,17 @@ export const doctorCommand = Command.make("doctor", { json }, (opts) =>
         }
         const assetHashes = new Map([...assetFiles].map(([p, a]) => [p, a.hash]))
         const paths = new Set([...assetHashes.keys(), ...manifest.value.files.map((f) => f.path)])
-        const diskHashes = new Map<string, string | null>()
-        for (const p of paths) {
-          const content = yield* readTextOrNull(p)
-          diskHashes.set(p, content === null ? null : contentHash(content))
-        }
+        const diskContent = new Map<string, string | null>()
+        for (const p of paths) diskContent.set(p, yield* readTextOrNull(p))
+        const diskHashes = new Map(
+          [...diskContent].map(([p, c]) => [p, c === null ? null : contentHash(c)])
+        )
 
-        for (const action of planUpgrade({ manifestFiles: reconcileRoles(manifest.value.files), assetHashes, diskHashes })) {
+        const reconciled = reconcileRoles(manifest.value.files)
+        const rules = planRuleInputs({ manifestFiles: reconciled, skillsDir: manifest.value.skillsDir, diskContent })
+        // The config is checked above; a missing one is a note, not a problem.
+        const tracked = reconciled.filter((f) => f.path !== CONFIG_PATH)
+        for (const action of planUpgrade({ manifestFiles: tracked, assetHashes, diskHashes, ...rules })) {
           switch (action._tag) {
             case "Update":
             case "Install":
@@ -107,12 +137,34 @@ export const doctorCommand = Command.make("doctor", { json }, (opts) =>
             case "Conflict":
               lines.push({ path: action.path, status: "modified", note: "differs from both manifest and bundled version" })
               break
-            case "Orphan":
-              lines.push({ path: action.path, status: "orphan", note: "tracked but no longer shipped" })
+            case "Remove":
+              lines.push({ path: action.path, status: "orphan", note: "no longer shipped; `brain upgrade` removes it" })
+              break
+            case "OrphanModified":
+              lines.push({ path: action.path, status: "orphan", note: "no longer shipped, locally modified; delete it by hand if nothing references it" })
+              break
+            case "OrphanMissing":
+              lines.push({ path: action.path, status: "orphan", note: "no longer shipped and missing on disk; `brain upgrade` drops it from the manifest" })
               break
             case "UpToDate":
             case "KeepLocal":
+            case "SkipSeed":
               break
+          }
+        }
+        // Files inside a bundled skill's folder that neither the package ships nor
+        // the manifest tracks: leftovers of a hand-installed or older copy, which
+        // `upgrade` never removes. Reported, not counted as a problem. A
+        // project-owned (all-seed) skill folder is the project's business.
+        const known = new Set([...paths])
+        for (const name of assets.skillNames) {
+          const dir = `${manifest.value.skillsDir}/${name}`
+          if (rules.seedSkillDirs.has(dir)) continue
+          if ((yield* pathFact(dir)).kind === "absent") continue
+          for (const rel of yield* walkFiles(dir).pipe(Effect.orElseSucceed(() => [] as Array<string>))) {
+            const file = `${dir}/${rel}`
+            if (known.has(file) || rel.split("/").some((part) => part.startsWith("."))) continue
+            lines.push({ path: file, status: "untracked", note: "inside a bundled skill but not shipped by this version — delete it if nothing references it" })
           }
         }
         notes.push(`manifest version ${manifest.value.packageVersion}, skills directory ${manifest.value.skillsDir}`)
@@ -150,4 +202,4 @@ export const doctorCommand = Command.make("doctor", { json }, (opts) =>
     yield* Console.log(opts.json ? renderReportJson(report) : renderReport(report))
     if (problems > 0) yield* Effect.sync(() => { process.exitCode = 1 })
   })
-).pipe(Command.withDescription("Health check: brain structure, placeholders, manifest, and skill drift (read-only)."))
+).pipe(Command.withDescription("Health check: project config, brain structure, placeholders, manifest, and skill drift (read-only)."))

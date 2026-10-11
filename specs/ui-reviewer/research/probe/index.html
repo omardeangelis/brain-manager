@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI defect probe</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: #fff; color: #0f172a; }
+  main { padding: 16px; max-width: 1000px; }
+  section { margin: 0 0 24px; }
+  h2 { font-size: 14px; margin: 0 0 8px; }
+
+  /* P1 (LS-7): focus ring clipped by overflow:hidden on the shell; buttons flush to the right/bottom edge */
+  .shell { overflow: hidden; border: 1px solid #cbd5e1; border-radius: 12px; width: 320px; }
+  .shell .body { padding: 12px 0 0 12px; }
+  .shell .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .shell button { padding: 8px 12px; border: 0; border-radius: 8px; background: #1e77eb; color: #f8fafc; font: inherit; }
+  .shell button:focus-visible { outline: 2px solid #1e77eb; outline-offset: 2px; }
+
+  /* P2 (AS-1/AS-2/AS-3/AS-4): 16px checkbox inside a padded row; only the label toggles; ring on box only */
+  .row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; width: 340px; border-radius: 8px; }
+  .row:hover { background: #f1f5f9; }
+  .row label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+  .row input { width: 16px; height: 16px; margin: 0; }
+  .row input:focus-visible { outline: 2px solid #1e77eb; outline-offset: 2px; }
+  .row .name { font-weight: 600; }
+  .row .pct { margin-left: 8px; color: #475569; }
+  .tick { width: 14px; height: 14px; color: #16a34a; }
+
+  /* P3 (SS-12): 12px amber-600 counter on white */
+  .counter { font-size: 12px; color: #d97706; }
+  .counter-ok { font-size: 12px; color: #475569; }
+
+  /* P4 (SS-11): "+28" chip whose name does not contain the visible text; P5 (SS-10) English "Dismiss" last in DOM */
+  .chip { display: inline-block; padding: 2px 8px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; font: inherit; margin: 2px; }
+
+  /* P6 (SS-1): chip preview inside a card whose width follows the viewport */
+  .card { width: min(100%, 343px); border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  /* P7 (LS-2): an overlay whose width/left are fixed in px at open time and never recomputed */
+  #overlay { position: fixed; top: 40px; height: 120px; background: #fff; border: 1px solid #94a3b8; border-radius: 12px; display: none; padding: 12px; z-index: 5; }
+
+  /* P8 (SS-9): centered modal that re-centers on every height change */
+  #modal { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 300px; background: #fff; border: 1px solid #94a3b8; border-radius: 12px; padding: 12px; display: none; z-index: 6; }
+</style>
+</head>
+<body>
+<main>
+  <section id="p1">
+    <h2>P1 clipped focus ring</h2>
+    <div class="shell">
+      <div class="body">
+        <p>Scollegare la pagina?</p>
+        <div class="actions">
+          <button id="p1-cancel">Annulla</button>
+          <button id="p1-confirm">Scollega</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="p2">
+    <h2>P2 checkbox row</h2>
+    <div class="row" id="p2-row">
+      <label id="p2-label"><input type="checkbox" id="p2-box"><span class="name">Docker</span><span class="pct">58%</span></label>
+      <svg class="tick" id="p2-tick" viewBox="0 0 16 16"><title>Selezionata</title><path d="M3 8l3 3 7-7" stroke="currentColor" fill="none" stroke-width="2"/></svg>
+    </div>
+  </section>
+
+  <section id="p3">
+    <h2>P3 counter contrast</h2>
+    <span class="counter" id="p3-counter">30/30</span>
+    <span class="counter-ok" id="p3-ok">16/30</span>
+  </section>
+
+  <section id="p4">
+    <h2>P4 label in name</h2>
+    <button class="chip" id="p4-a" aria-label="Mostra altre 28 competenze">+28</button>
+    <button class="chip" id="p4-b" aria-label="Mostra altre competenze">+28</button>
+    <button class="chip" id="p4-c" aria-label="Apri modifica">Modifica competenze</button>
+  </section>
+
+  <section id="p6">
+    <h2>P6 chip preview</h2>
+    <div class="card" id="p6-card">
+      <div class="chips" id="p6-chips">
+        <span class="chip">TypeScript</span><span class="chip">React</span><span class="chip">Node.js</span>
+        <span class="chip">PostgreSQL</span><span class="chip">Kubernetes</span><span class="chip">GraphQL</span>
+        <button class="chip" id="p6-more">+28</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="p7">
+    <h2>P7 overlay geometry</h2>
+    <button id="p7-open">Apri overlay</button>
+    <div id="overlay" role="dialog" aria-label="Overlay"><p>Overlay aperto</p><button>Chiudi</button></div>
+  </section>
+
+  <section id="p8">
+    <h2>P8 re-centering modal</h2>
+    <button id="p8-open">Apri modale</button>
+    <div id="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
+      <h3 id="m-title">Competenze</h3>
+      <ul id="m-list"><li>react <button class="m-rej">rifiuta</button></li><li>html <button class="m-rej">rifiuta</button></li><li>vue <button class="m-rej">rifiuta</button></li></ul>
+      <button id="m-save">Salva</button>
+      <button id="m-close" aria-label="Dismiss">×</button>
+    </div>
+  </section>
+</main>
+<script>
+  document.getElementById('p7-open').addEventListener('click', () => {
+    const o = document.getElementById('overlay');
+    const w = Math.min(840, window.innerWidth - 32);
+    o.style.width = w + 'px';
+    o.style.left = Math.round((window.innerWidth - w) / 2) + 'px';
+    o.style.display = 'block';
+  });
+  document.getElementById('p8-open').addEventListener('click', () => {
+    document.getElementById('modal').style.display = 'block';
+  });
+  document.querySelectorAll('.m-rej').forEach(b => b.addEventListener('click', e => e.target.closest('li').remove()));
+</script>
+</body>
+</html>

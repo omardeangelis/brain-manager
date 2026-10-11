@@ -1,17 +1,21 @@
 import { Command, Options } from "@effect/cli"
+import { FileSystem } from "@effect/platform"
 import { Console, Effect, Option } from "effect"
 import { carryAdvisorsOver, hasAdvisorMarkers } from "../core/advisors.js"
 import { agentName, companionAgents } from "../core/companions.js"
+import { CONFIG_PATH, defaultConfig } from "../core/config.js"
 import { contentHash } from "../core/hash.js"
 import { MANIFEST_PATH, type Manifest, type ManifestEntry, decodeManifest, defaultRole, encodeManifest, reconcileRoles, rewriteSkillsDir } from "../core/manifest.js"
-import { planUpgrade, type UpgradeAction } from "../core/plan.js"
+import { emptiedDirCandidates, planRuleInputs, planUpgrade, type UpgradeAction } from "../core/plan.js"
 import { CANONICAL_AGENTS_DIR, CANONICAL_SKILLS_DIR, type Provider, byId, providerForSkillsDir, uniqueProviders } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
 import { stampToday } from "../core/stamp.js"
 import { CliError } from "../errors.js"
 import { Assets, type AssetFile } from "../services/Assets.js"
-import { exists, readTextOrNull, writeText } from "../services/fsx.js"
+import { collectContext } from "../services/context.js"
+import { exists, pathFact, readTextOrNull, removePath, writeText } from "../services/fsx.js"
 import { detectProviders, runLink } from "../services/linker.js"
+import { ensureConfig } from "../services/project-config.js"
 import { VERSION } from "../version.js"
 
 /**
@@ -19,13 +23,23 @@ import { VERSION } from "../version.js"
  * package, using the manifest to distinguish "untouched since install" (safe
  * to update) from "locally modified" (conflict: skipped unless --force).
  * Seed files (brain/ content, project-owned agent-browser) are only restored
- * when missing, never overwritten. Advisor blocks survive every update.
+ * when missing, never overwritten, and a skill folder whose entries are all
+ * seed gets no newly shipped file either. Advisor blocks survive every update.
+ *
+ * A managed file this version no longer ships is deleted only when it still
+ * matches its manifest hash and holds no wired advisor block (then the folders
+ * it leaves empty go too); an edited one stays on disk, even with --force.
+ * Either way it leaves the manifest.
  *
  * `--skill <name>` narrows the run to one bundled skill and the agents linked
  * to it (their `skills:` list, see core/companions.ts): installed when absent,
  * synced when present, with the same conflict rules, while every other
  * manifest entry is carried over untouched and the manifest keeps its version,
  * since only part of it moved.
+ *
+ * A full run also maintains the project config (`brain/brain.config.json`):
+ * written from detection when absent, otherwise only its missing keys are
+ * added. A scoped run leaves it alone.
  */
 
 const force = Options.boolean("force").pipe(
@@ -58,7 +72,10 @@ const STATUS: Record<UpgradeAction["_tag"], string> = {
   UpToDate: "up-to-date",
   KeepLocal: "kept",
   Conflict: "conflict",
-  Orphan: "orphan"
+  Remove: "removed",
+  OrphanModified: "orphan",
+  OrphanMissing: "orphan",
+  SkipSeed: "kept"
 }
 
 export const upgradeCommand = Command.make(
@@ -96,6 +113,9 @@ export const upgradeCommand = Command.make(
       let manifest = yield* decodeManifest(manifestRaw).pipe(
         Effect.mapError((e) => new CliError({ message: `unreadable manifest: ${e.message}` }))
       )
+
+      // Project facts, read before the layout migration may promote the router.
+      const context = scoped ? null : yield* collectContext({ shippedAgents: new Set(assets.agents.keys()) })
 
       // --- reconcile the .agents/-canonical layout --------------------------
       // Migrates a legacy `.claude/skills` install (skills under a provider dir,
@@ -162,8 +182,10 @@ export const upgradeCommand = Command.make(
         !scoped ||
         selected.some((name) => path.startsWith(`${manifest.skillsDir}/${name}/`)) ||
         linkedAgents.some((rel) => path === `${CANONICAL_AGENTS_DIR}/${rel}`)
+      // The project config never goes through the planner: a full run handles it
+      // below, a scoped run carries it over untouched.
       const carried = manifest.files.filter((f) => !inScope(f.path))
-      const scopedFiles = manifest.files.filter((f) => inScope(f.path))
+      const scopedFiles = manifest.files.filter((f) => inScope(f.path) && f.path !== CONFIG_PATH)
 
       // Disk state for every path either side knows about.
       const paths = new Set([...assetHashes.keys(), ...scopedFiles.map((f) => f.path)])
@@ -173,7 +195,8 @@ export const upgradeCommand = Command.make(
         [...diskContent].map(([p, c]) => [p, c === null ? null : contentHash(c)])
       )
 
-      const actions = planUpgrade({ manifestFiles: scopedFiles, assetHashes, diskHashes })
+      const rules = planRuleInputs({ manifestFiles: manifest.files, skillsDir: manifest.skillsDir, diskContent })
+      const actions = planUpgrade({ manifestFiles: scopedFiles, assetHashes, diskHashes, ...rules })
 
       const oldRole = new Map(manifest.files.map((f) => [f.path, f.role]))
       const oldHash = new Map(manifest.files.map((f) => [f.path, f.hash]))
@@ -182,6 +205,7 @@ export const upgradeCommand = Command.make(
 
       const lines: Array<ReportLine> = []
       const entries: Array<ManifestEntry> = []
+      const removed: Array<string> = []
 
       const writeAsset = (path: string) =>
         Effect.gen(function* () {
@@ -239,11 +263,69 @@ export const upgradeCommand = Command.make(
             }
             break
           }
-          case "Orphan": {
-            lines.push({ path, status: "orphan", note: "no longer shipped by this version — left on disk, dropped from manifest" })
+          case "Remove": {
+            if (opts.dryRun) {
+              lines.push({ path, status: "would remove", note: "no longer shipped, unmodified since install" })
+            } else {
+              yield* removePath(path)
+              removed.push(path)
+              lines.push({ path, status: STATUS[_tag], note: "no longer shipped, unmodified since install — dropped from manifest" })
+            }
+            break
+          }
+          case "OrphanModified": {
+            lines.push({ path, status: STATUS[_tag], note: "no longer shipped, locally modified, left on disk — dropped from manifest" })
+            break
+          }
+          case "OrphanMissing": {
+            lines.push({ path, status: STATUS[_tag], note: "missing on disk and no longer shipped — dropped from manifest" })
+            break
+          }
+          case "SkipSeed": {
+            lines.push({ path, status: STATUS[_tag], note: "project-owned skill — new bundled file not installed" })
             break
           }
         }
+      }
+
+      // Folders the removals left empty, deepest first, up to the skill folder.
+      // Best effort: a folder that cannot be listed or removed is left alone.
+      const fs = yield* FileSystem.FileSystem
+      for (const dir of emptiedDirCandidates(removed, [manifest.skillsDir, CANONICAL_AGENTS_DIR, "brain"])) {
+        if ((yield* pathFact(dir)).kind !== "dir") continue
+        const children = yield* fs.readDirectory(dir).pipe(Effect.option)
+        if (children._tag === "None" || children.value.length > 0) continue
+        // Empty (just checked), so `recursive` only lets remove() accept a folder.
+        const gone = yield* removePath(dir, true).pipe(Effect.option)
+        if (gone._tag === "Some") lines.push({ path: `${dir}/`, status: "removed", note: "empty after the removal" })
+      }
+
+      // --- project config: created when absent, else only missing keys added ---
+      // Paths and review location come from detection (facts). review.mode is a
+      // policy: upgrade never adopts one on its own, so an absent key gets the
+      // default (0.6.0 behavior) and the router's suggestion is only reported.
+      const configNotes: Array<string> = []
+      if (context !== null) {
+        const suggestions = context.suggested.suggestions.map((s) =>
+          s.key === "review.mode" ? { ...s, value: defaultConfig.review.mode, reason: "default", basis: "default" as const } : s
+        )
+        const result = yield* ensureConfig({ suggestions, overrides: [], dryRun: opts.dryRun })
+        // An unreadable config is reported too (it is kept as is; doctor flags it).
+        if (result.config === null) lines.push(result.line)
+        if (result.line.status !== "kept") {
+          lines.push(result.line)
+          configNotes.push(...result.notes.filter((n) => !n.startsWith("config: review.mode")))
+          const routerMode = context.suggested.suggestions.find((s) => s.key === "review.mode")!
+          const wroteMode = result.line.status === "created" || result.line.note?.includes("review.mode") === true
+          if (wroteMode) {
+            configNotes.push(
+              routerMode.basis === "detected" && routerMode.value !== defaultConfig.review.mode
+                ? `config: review.mode defaulted to ${defaultConfig.review.mode} — ${routerMode.reason}, which suggests ${routerMode.value}: \`brain config set review.mode ${routerMode.value}\` to adopt it`
+                : `config: review.mode defaulted to ${defaultConfig.review.mode} — \`brain config set review.mode …\` to change`
+            )
+          }
+        }
+        if (result.entry !== null) entries.push(result.entry)
       }
 
       if (!opts.dryRun) {
@@ -268,7 +350,9 @@ export const upgradeCommand = Command.make(
         !(yield* exists(STACK_PROFILE))
 
       const allLines = [...migrationLines, ...lines]
-      const conflicts = allLines.filter((l) => l.status === "conflict").length
+      const conflictLines = allLines.filter((l) => l.status === "conflict")
+      const reconcile = conflictLines.filter((l) => l.note?.includes("reconcile") === true).length
+      const conflicts = conflictLines.length - reconcile
       const report = {
         command: ["upgrade", ...(scoped ? [`--skill ${selected.join(",")}`] : []), ...(opts.dryRun ? ["--dry-run"] : [])].join(" "),
         lines: allLines,
@@ -284,6 +368,10 @@ export const upgradeCommand = Command.make(
             : []),
           ...(opts.dryRun ? ["dry run — nothing was written"] : []),
           ...(conflicts > 0 ? [`${conflicts} conflict(s) skipped — re-run with --force to overwrite`] : []),
+          ...(reconcile > 0
+            ? [`${reconcile} router file(s) differ from AGENTS.md — reconcile them (init-brain → references/router.md), then run \`brain link\``]
+            : []),
+          ...configNotes,
           ...(stackProfileMissing
             ? [`no ${STACK_PROFILE} yet — have your assistant run ${manifest.skillsDir}/design-engineering/references/stack-adaptation.md (otherwise it runs on the first motion task)`]
             : [])

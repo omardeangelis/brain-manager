@@ -12,8 +12,9 @@ import {
   parseProviders
 } from "../core/providers.js"
 import type { ReportLine } from "../core/report.js"
+import { ROUTER_STUB } from "../core/router.js"
 import { CliError } from "../errors.js"
-import { exists, pathFact, removePath, renamePath, symlinkRel, writeText } from "./fsx.js"
+import { exists, pathFact, readTextOrNull, removePath, renamePath, symlinkRel, writeText } from "./fsx.js"
 
 /**
  * Providers whose footprint is visible in the repo. A provider is "detected" by
@@ -55,17 +56,6 @@ export const resolveProviders = (provided: Option.Option<string>) =>
  * `brain upgrade`, so all three reach the `.agents/`-canonical layout the same way.
  */
 
-const ROUTER_STUB = `# AGENTS.md
-
-Guidance for AI coding agents working in this repo. The knowledge base and the
-spec-driven skill suite live under \`brain/\` — start with \`create-spec\`, and read
-\`brain/AGENTS.md\` for how to operate inside \`brain/\`.
-
-## Project guidelines
-
-<!-- Build / test / lint gates, review gates, and conventions every change must respect. -->
-`
-
 export interface RunLinkOptions {
   readonly providers: ReadonlyArray<Provider>
   /** Where the real skills currently live (manifest.skillsDir), or null when fresh. */
@@ -81,6 +71,10 @@ export interface RunLinkResult {
   readonly links: Array<ManifestLink>
   readonly skillsDir: string
 }
+
+/** The root router files whose content the planner compares (canonical + holdouts). */
+const routerPaths = (providers: ReadonlyArray<Provider>): Set<string> =>
+  new Set([CANONICAL_ROUTER, ...providers.map((p) => p.rootFile).filter((f): f is string => f !== null)])
 
 const relevantPaths = (
   providers: ReadonlyArray<Provider>,
@@ -145,8 +139,17 @@ const executeAction = (action: LinkAction, dryRun: boolean) =>
 export const runLink = (opts: RunLinkOptions) =>
   Effect.gen(function* () {
     const paths = relevantPaths(opts.providers, opts.currentSkillsDir)
+    const routers = routerPaths(opts.providers)
     const disk = new Map<string, DiskFact>()
-    for (const p of paths) disk.set(p, yield* pathFact(p))
+    for (const p of paths) {
+      const fact = yield* pathFact(p)
+      // Router files carry their text (read through a symlink) so the planner
+      // can link an identical CLAUDE.md and refuse to discard a differing one.
+      const content = routers.has(p) && fact.kind !== "absent" && fact.kind !== "dir"
+        ? yield* readTextOrNull(p).pipe(Effect.orElseSucceed(() => null))
+        : null
+      disk.set(p, content === null ? fact : { ...fact, content })
+    }
 
     const actions = planLink({
       providers: opts.providers,
