@@ -1311,6 +1311,13 @@ describe("README and EVAL — the shipped counts and lists", () => {
       expect(notes, needle).toContain(needle)
     }
 
+    // The 0.8.0 release notes name the config key, the ratings, the shared brief and the upgrade.
+    const notes080 = section(readme, "## Release notes — 0.8.0")
+    for (const needle of ["`execution.delegation`", "`complexity`", "`worker-brief.md`", "Upgrading from 0.7"]) {
+      expect(notes080, needle).toContain(needle)
+    }
+    expect(readme).not.toContain("## Release notes — unreleased")
+
     // EVAL's fresh-init row.
     const evalInit = lineOf(evalMd, "| Claude (skills + agents) |")
     expect(evalInit).toContain(`${skills} skills`)
