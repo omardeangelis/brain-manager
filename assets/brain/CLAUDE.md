@@ -46,7 +46,7 @@ Non-negotiables every spec-driven skill respects:
 
 ## Project configuration
 
-The project's own facts, and its one policy knob, live in `brain/brain.config.json`. It is project-owned: `brain init` writes it from what it detects, `brain upgrade` only adds keys that are missing, `brain doctor` validates it, and `brain config get|set` reads and changes it.
+The project's own facts, and its policy knobs, live in `brain/brain.config.json`. It is project-owned: `brain init` writes it from what it detects, `brain upgrade` only adds keys that are missing, `brain doctor` validates it, and `brain config get|set` reads and changes it.
 
 **Read it first.** Every suite skill and shipped agent reads `brain/brain.config.json` at the start of a run. When the file is absent, every default below applies.
 
@@ -59,6 +59,7 @@ The project's own facts, and its one policy knob, live in `brain/brain.config.js
 | `paths.techDebt` | repo-relative directory | `brain/tech-debt` | The tech-debt store, one page per spec |
 | `paths.reviews` | repo-relative directory | `brain/review` | Standalone reviews, and spec reviews under `review-tree` |
 | `paths.personas` | repo-relative file, or `null` | `null` | The project's personas page |
+| `execution.delegation` | `supervised` \| `inline` | `supervised` | Who writes each task's code in `implement-spec` (below) |
 
 **Path tokens.** Skills and agents write `<techDebt>`, `<reviews>` and `<personas>` for the resolved `paths.techDebt`, `paths.reviews` and `paths.personas`. With the defaults, `<techDebt>/<domain>/<spec>.md` is `brain/tech-debt/<domain>/<spec>.md`.
 
@@ -82,6 +83,15 @@ The project's own facts, and its one policy knob, live in `brain/brain.config.js
 - `none` makes every gate opt-in.
 
 Skills mark each gate with **Gate — `review.mode` ∈ {…}**. In a mode outside the set, the skill offers the review in one line and continues.
+
+### Execution delegation
+
+`execution.delegation` decides who writes each task's code in `implement-spec`, in both execution modes (`sequential` runs one task at a time, `parallel` runs waves; delegation is independent of that choice).
+
+- `supervised` (default): the orchestrator supervises. It writes each task's RED test, hands the task to one worker on the model tier the task's `complexity` names (`low` → fast, `medium` → balanced, `high` → strongest), reviews the result itself, and sends back a concrete fix when it fails. After two failed reviews, a worker one tier up takes the task; after that, the orchestrator does it or reports a blocker. Only the orchestrator writes `PLAN.md`, `IMPLEMENTATION-NOTES.md` and tech debt.
+- `inline`: the orchestrator writes the code of `sequential` tasks itself, and `parallel` workers inherit its model.
+
+`create-plan` (through `swarm-plan`) rates every task's `complexity` when it writes the plan.
 
 ## Directory Conventions
 

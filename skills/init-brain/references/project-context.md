@@ -1,6 +1,6 @@
 # Project context
 
-Decide where the project's own facts live, so every suite skill and agent reads them from `brain/brain.config.json` instead of being edited to fit. Four facts: the personas, the tech-debt store, the review location, and the review mode. The CLI only **suggests**, each value with its reason; you decide with the user. Nothing is moved or extracted without confirmation.
+Decide where the project's own facts live, so every suite skill and agent reads them from `brain/brain.config.json` instead of being edited to fit. Four facts and one policy: the personas, the tech-debt store, the review location, the review mode, and execution delegation. The CLI only **suggests**, each value with its reason; you decide with the user. Nothing is moved or extracted without confirmation.
 
 ## Inputs
 
@@ -65,14 +65,18 @@ Corroborate with the router: a router that names a review or tech-debt path is e
 
 The user chose it in Step 1 (recommended value: the scan's suggestion, which comes from a review policy the root router states). The matrix of what each mode runs is in `brain/AGENTS.md` → Project configuration → Review modes; show it when the user hesitates.
 
-## 5. Show, confirm, record
+## 5. Execution delegation → `execution.delegation`
+
+Nothing to detect: the default is `supervised` — `implement-spec` hands each task to a worker on the model tier its `complexity` names and reviews it (`brain/AGENTS.md` → Project configuration → Execution delegation). Put it in the table with that one-line explanation and keep the default. Recommend `inline` only when the user asks for single-model execution or the project's AI tools cannot spawn subagents.
+
+## 6. Show, confirm, record
 
 Show one table — key, value, reason — and confirm it with the user. Then record it:
 
 - **Fresh init (Step 2):** pass the values as flags:
 
   ```bash
-  $BRAIN init --providers <ids> --review-mode <m> [--review-location <l>] [--tech-debt-dir <dir>] [--personas <file>]
+  $BRAIN init --providers <ids> --review-mode <m> [--delegation inline] [--review-location <l>] [--tech-debt-dir <dir>] [--personas <file>]
   ```
 
   Pass `--personas` only for a file that already exists. For an extraction, run `init` without it, write `brain/personas.md`, then set the key (below).

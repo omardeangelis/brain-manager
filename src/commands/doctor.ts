@@ -52,7 +52,7 @@ export const doctorCommand = Command.make("doctor", { json }, (opts) =>
     } else {
       const c = config.right
       techDebtDir = c.paths.techDebt
-      lines.push({ path: CONFIG_PATH, status: "ok", note: `review.mode ${c.review.mode}, review.location ${c.review.location}` })
+      lines.push({ path: CONFIG_PATH, status: "ok", note: `review.mode ${c.review.mode}, review.location ${c.review.location}, execution.delegation ${c.execution.delegation}` })
       const configured: Array<[string, string | null]> = [["paths.reviews", c.paths.reviews], ["paths.personas", c.paths.personas]]
       for (const [key, value] of configured) {
         if (value === null || (yield* exists(value))) continue

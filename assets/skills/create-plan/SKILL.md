@@ -48,7 +48,7 @@ Create a plan first. Never implement code in this skill.
 2. Ask only for missing high-impact inputs such as scope, goal, or backlog target.
 3. Every plan-shaping question must use the exact block: `Decision`, `Recommendation`, `Question`, `Why it matters`.
 4. Keep `$grill-me`, `$swarm-plan`, and `$tdd` as visible required inner phases of one planning run. Between `$swarm-plan` and `$tdd`, fold in `FLOW.md` and run the `design-engineer` pass (and any project advisor from `## Project Advisors`) when their triggers fire (Quick start steps 8–10). After backlog sync, run the `adversarial-verifier` plan gate when `review.mode` is `total` or `plan` (step 13).
-5. Normalize every task with stable ids, `depends_on`, `location`, `description`, `validation`, `status`, `log`, `files edited/created`, owning-story backlog references, `tdd_target`, and `review_mode`.
+5. Normalize every task with stable ids, `depends_on`, `location`, `description`, `validation`, `status`, `log`, `files edited/created`, owning-story backlog references, `tdd_target`, `review_mode`, and `complexity`.
 6. Keep the saved plan standalone: include situation, issue, solution shape, assumptions, findings, research, dependency graph, testing strategy, risks, validation gates, unresolved questions, and a resolved decision ledger.
 7. Stop after plan creation and backlog sync. Do not implement code or spawn implementation workers.
 

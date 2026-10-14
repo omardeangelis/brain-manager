@@ -124,9 +124,10 @@ describe("suggestConfig", () => {
     expect(config).toEqual({
       version: 1,
       review: { mode: "none", location: "review-tree" },
-      paths: { techDebt: "brain/tech-debt", reviews: "brain/review", personas: null }
+      paths: { techDebt: "brain/tech-debt", reviews: "brain/review", personas: null },
+      execution: { delegation: "supervised" }
     })
-    expect(suggestions.map((s) => s.key)).toEqual(["review.mode", "review.location", "paths.techDebt", "paths.reviews", "paths.personas"])
+    expect(suggestions.map((s) => s.key)).toEqual(["review.mode", "review.location", "paths.techDebt", "paths.reviews", "paths.personas", "execution.delegation"])
     for (const s of suggestions) expect(s.reason.length).toBeGreaterThan(0)
     expect(suggestions[0]!.reason).toBe("CLAUDE.md states review only on request")
     expect(suggestions[4]!.reason).toMatch(/extract them verbatim to brain\/personas\.md/)

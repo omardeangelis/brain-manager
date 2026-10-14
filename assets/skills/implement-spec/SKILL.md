@@ -1,6 +1,6 @@
 ---
 name: implement-spec
-description: Implement an approved spec folder while keeping `IMPLEMENTATION-NOTES.md`, `PLAN.md`, and spec-linked tech debt in sync. Use when a reviewed spec already has a `PLAN.md` and execution should proceed either sequentially in one thread or in parallel with explicit worker orchestration.
+description: Implement an approved spec folder while keeping `IMPLEMENTATION-NOTES.md`, `PLAN.md`, and spec-linked tech debt in sync. The orchestrator supervises — it delegates each task to a worker on the model tier the task's `complexity` names, reviews the result, and escalates failures. Use when a reviewed spec already has a `PLAN.md` and execution should proceed either sequentially or in parallel waves.
 ---
 
 # Implement Spec
@@ -10,7 +10,7 @@ description: Implement an approved spec folder while keeping `IMPLEMENTATION-NOT
 - **Role:** higher-order execution orchestrator
 - **Entrypoint type:** public entrypoint
 - **Upstream:** reviewed spec folder with `SPEC.md` and `PLAN.md`
-- **Delegates to:** `$tdd`, `$simplify`, and internal worker orchestration in parallel mode
+- **Delegates to:** `$tdd`, `$simplify`, and tiered workers it supervises (per `execution.delegation`)
 - **Downstream:** `adversarial-review` (independent quality gate before finalizing, per `review.mode`), then `docs-maintenance` when the resulting spec folder should be ingested into domain knowledge
 - **Entry conditions:** existing reviewed spec folder; stop and use `create-plan` if `PLAN.md` is missing
 - **Stop conditions:** shared acceptance audit complete, spec folder finalized, blocked work reported honestly
@@ -55,9 +55,9 @@ That means `implement-spec` itself owns all of the following in parallel mode:
 1. Read `brain/brain.config.json` (keys in `brain/AGENTS.md` → Project configuration). If it is absent, use the defaults listed there. Resolve the target spec folder under `brain/specs/<domain>/<spec>/`.
 2. Read `references/lifecycle.md` and follow the shared execution contract exactly.
 3. Choose the execution mode explicitly:
-   - Read `references/sequential.md` for one-thread execution.
+   - Read `references/sequential.md` for one-task-at-a-time execution.
    - Read `references/parallel.md` for wave-based worker execution.
-4. Record the chosen mode under **Execution mode** in `IMPLEMENTATION-NOTES.md` before coding.
+4. Read `references/delegation.md` and resolve `execution.delegation` (default `supervised`). Record the mode and the delegation policy under **Execution mode** in `IMPLEMENTATION-NOTES.md` before coding.
 5. Execute only the chosen mode. Do not mix modes inside one run.
 6. After each completed task or wave, update `PLAN.md`, `IMPLEMENTATION-NOTES.md`, and spec-linked tech debt (`<techDebt>/<domain>/<spec>.md`) before advancing.
 7. If backlog sync is in scope, keep epic/story bodies product-facing and use native metadata or comments instead of execution handoff rewrites.
@@ -81,13 +81,25 @@ Choose `parallel` when:
 
 If the user already chose a mode, honor it. If not, make the smallest safe choice and state it.
 
+## Delegation
+
+Delegation is independent of the mode: the mode decides how many tasks run at once, delegation decides who writes each task's code. Under `execution.delegation: supervised` (the default) you are the supervisor in both modes:
+
+- each task goes to one worker on the tier its `complexity` names (`low` → fast, `medium` → balanced, `high` → strongest)
+- you write the RED contract first, review every result yourself, and send back a concrete fix proposal when it fails
+- after two failed reviews, a worker one tier up takes the task; after that, you do it or report the blocker
+- only you write `PLAN.md`, `IMPLEMENTATION-NOTES.md`, and tech debt
+
+`inline` turns this off: you execute `sequential` tasks yourself. The full contract is [references/delegation.md](references/delegation.md).
+
 ## Advanced features
 
 - Shared lifecycle, notes contract, tech-debt rules, acceptance audit, finalization: see [references/lifecycle.md](references/lifecycle.md)
 - Sequential execution specifics: see [references/sequential.md](references/sequential.md)
 - Parallel execution specifics: see [references/parallel.md](references/parallel.md)
 - Parallel plan parsing and wave construction: see [references/parallel-orchestration.md](references/parallel-orchestration.md)
-- Parallel worker brief contract: see [references/parallel-worker-brief.md](references/parallel-worker-brief.md)
+- Delegation, model tiers, review and escalation ladder: see [references/delegation.md](references/delegation.md)
+- Worker brief contract (both modes): see [references/worker-brief.md](references/worker-brief.md)
 
 ## Project Advisors
 

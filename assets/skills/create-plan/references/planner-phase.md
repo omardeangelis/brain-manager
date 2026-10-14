@@ -31,6 +31,7 @@ Preserve `$swarm-plan` behavior:
 - explicit task ids and `depends_on`
 - atomic tasks sized for one worker
 - validations per task
+- a `complexity` rating per task (the executor tier)
 - parallel execution waves
 - risks and mitigations
 - a final subagent review for missing deps, ordering issues, edge cases, and holes before yielding
