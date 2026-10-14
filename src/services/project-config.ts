@@ -1,6 +1,7 @@
 import { Effect, Either } from "effect"
 import {
   type BrainConfig,
+  CONFIG_KEYS,
   CONFIG_PATH,
   type ConfigKey,
   type PartialConfig,
@@ -73,7 +74,7 @@ export const ensureConfig = (opts: EnsureConfigOptions) =>
       if (!opts.dryRun) yield* writeText(CONFIG_PATH, content)
       const result: EnsureConfigResult = {
         line: { path: CONFIG_PATH, status: "created", note: `review.mode ${target.review.mode}, review.location ${target.review.location}` },
-        notes: (["review.mode", "review.location", "paths.techDebt", "paths.reviews", "paths.personas"] as const).map(explain),
+        notes: CONFIG_KEYS.map(explain),
         entry: { path: CONFIG_PATH, role: "seed", hash: contentHash(content) },
         config: target
       }

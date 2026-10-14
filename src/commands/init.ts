@@ -3,7 +3,7 @@ import { Console, Effect, Option } from "effect"
 import { ADVISORS_START, carryAdvisorsOver, hasAdvisorMarkers } from "../core/advisors.js"
 import { contentHash } from "../core/hash.js"
 import { MANIFEST_PATH, type Manifest, type ManifestEntry, type ManifestLink, decodeManifest, defaultRole, encodeManifest, rewriteSkillsDir } from "../core/manifest.js"
-import { type ConfigKey, REVIEW_LOCATIONS, REVIEW_MODES } from "../core/config.js"
+import { type ConfigKey, DELEGATION_MODES, REVIEW_LOCATIONS, REVIEW_MODES } from "../core/config.js"
 import { CANONICAL_AGENTS_DIR, CANONICAL_SKILLS_DIR } from "../core/providers.js"
 import { type ReportLine, renderReport, renderReportJson } from "../core/report.js"
 import { stampToday } from "../core/stamp.js"
@@ -60,6 +60,12 @@ const reviewMode = Options.choice("review-mode", REVIEW_MODES).pipe(
   ),
   Options.optional
 )
+const delegation = Options.choice("delegation", DELEGATION_MODES).pipe(
+  Options.withDescription(
+    "Who writes each task's code in implement-spec: supervised (workers on the tier the task's complexity names, reviewed and escalated by the orchestrator) or inline (the orchestrator itself). Default: supervised."
+  ),
+  Options.optional
+)
 const reviewLocation = Options.choice("review-location", REVIEW_LOCATIONS).pipe(
   Options.withDescription("Advanced: where spec reviews are written (default: detected, else spec-folder)."),
   Options.optional
@@ -75,7 +81,7 @@ const personas = Options.text("personas").pipe(
 
 export const initCommand = Command.make(
   "init",
-  { force, json, skillsDir, providers, reviewMode, reviewLocation, techDebtDir, personas },
+  { force, json, skillsDir, providers, reviewMode, delegation, reviewLocation, techDebtDir, personas },
   (opts) =>
     Effect.gen(function* () {
       const assets = yield* Assets
@@ -89,6 +95,7 @@ export const initCommand = Command.make(
       const overrides: Array<readonly [ConfigKey, string]> = [
         ...Option.toArray(opts.reviewMode).map((v) => ["review.mode", v] as const),
         ...Option.toArray(opts.reviewLocation).map((v) => ["review.location", v] as const),
+        ...Option.toArray(opts.delegation).map((v) => ["execution.delegation", v] as const),
         ...Option.toArray(opts.techDebtDir).map((v) => ["paths.techDebt", v] as const),
         ...Option.toArray(opts.personas).map((v) => ["paths.personas", v] as const)
       ]

@@ -1,8 +1,8 @@
 import { Either, ParseResult, Schema } from "effect"
 
 /**
- * The project config (`brain/brain.config.json`): the project facts and the one
- * policy knob the suite reads at runtime, so a project never has to edit an
+ * The project config (`brain/brain.config.json`): the project facts and the
+ * policy knobs the suite reads at runtime, so a project never has to edit an
  * installed skill to fit its own conventions.
  *
  * It is `seed` in the manifest — written once by `init` (or by `upgrade` on an
@@ -10,7 +10,9 @@ import { Either, ParseResult, Schema } from "effect"
  * keys that are missing (`mergeMissing`); an existing value is never changed by
  * the CLI except through `brain config set`.
  *
- * No config file means every default below, which reproduces 0.6.0 behavior.
+ * No config file means every default below. The review defaults reproduce 0.6.0
+ * behavior; `execution.delegation` defaults to `supervised` (tiered workers),
+ * and `inline` restores the earlier single-model execution.
  */
 
 export const CONFIG_PATH = "brain/brain.config.json"
@@ -18,11 +20,14 @@ export const CONFIG_VERSION = 1
 
 export const REVIEW_MODES = ["total", "plan", "none"] as const
 export const REVIEW_LOCATIONS = ["spec-folder", "review-tree"] as const
+export const DELEGATION_MODES = ["supervised", "inline"] as const
 
 export const ReviewMode = Schema.Literal(...REVIEW_MODES)
 export type ReviewMode = typeof ReviewMode.Type
 export const ReviewLocation = Schema.Literal(...REVIEW_LOCATIONS)
 export type ReviewLocation = typeof ReviewLocation.Type
+export const DelegationMode = Schema.Literal(...DELEGATION_MODES)
+export type DelegationMode = typeof DelegationMode.Type
 
 /** A repo-relative path: non-empty, not absolute, never escaping the repo. */
 const isRepoPath = (s: string): boolean =>
@@ -36,12 +41,14 @@ export interface BrainConfig {
   readonly version: number
   readonly review: { readonly mode: ReviewMode; readonly location: ReviewLocation }
   readonly paths: { readonly techDebt: string; readonly reviews: string; readonly personas: string | null }
+  readonly execution: { readonly delegation: DelegationMode }
 }
 
 export const defaultConfig: BrainConfig = {
   version: CONFIG_VERSION,
   review: { mode: "total", location: "spec-folder" },
-  paths: { techDebt: "brain/tech-debt", reviews: "brain/review", personas: null }
+  paths: { techDebt: "brain/tech-debt", reviews: "brain/review", personas: null },
+  execution: { delegation: "supervised" }
 }
 
 /** Every key is optional on decode, so a partial or older file resolves against the defaults. */
@@ -61,6 +68,12 @@ const ConfigSchema = Schema.Struct({
       personas: Schema.optionalWith(Schema.NullOr(RepoPath), { default: () => defaultConfig.paths.personas })
     }),
     { default: () => ({ ...defaultConfig.paths }) }
+  ),
+  execution: Schema.optionalWith(
+    Schema.Struct({
+      delegation: Schema.optionalWith(DelegationMode, { default: () => defaultConfig.execution.delegation })
+    }),
+    { default: () => ({ ...defaultConfig.execution }) }
   )
 })
 
@@ -73,7 +86,8 @@ export const CONFIG_KEYS = [
   "review.location",
   "paths.techDebt",
   "paths.reviews",
-  "paths.personas"
+  "paths.personas",
+  "execution.delegation"
 ] as const
 export type ConfigKey = (typeof CONFIG_KEYS)[number]
 
@@ -87,6 +101,8 @@ export const allowedValues = (key: ConfigKey): string => {
       return REVIEW_MODES.join(", ")
     case "review.location":
       return REVIEW_LOCATIONS.join(", ")
+    case "execution.delegation":
+      return DELEGATION_MODES.join(", ")
     case "paths.personas":
       return "a repo-relative file path, or null"
     case "paths.techDebt":
@@ -139,7 +155,7 @@ const hasPath = (obj: PartialConfig, key: string): boolean => {
 }
 
 export const getKey = (config: BrainConfig, key: ConfigKey): string | null => {
-  const [section, leaf] = key.split(".") as ["review" | "paths", string]
+  const [section, leaf] = key.split(".") as ["review" | "paths" | "execution", string]
   return (config[section] as Record<string, string | null>)[leaf] ?? null
 }
 

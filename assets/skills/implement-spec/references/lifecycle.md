@@ -6,8 +6,10 @@
 
 It routes to one of two approaches:
 
-- `sequential` — one thread, no workers
+- `sequential` — one task at a time, in dependency order
 - `parallel` — wave-based execution with explicit worker orchestration
+
+Independently of the mode, `execution.delegation` decides who writes each task's code: tiered workers the run supervises (`supervised`, the default), or the run itself (`inline`). See [delegation.md](delegation.md).
 
 Do not recreate wrapper skills for these modes. Keep the routing here and load only the needed mode reference.
 
@@ -88,6 +90,7 @@ Skipping an advisor when its trigger fires must be justified in the conversation
 
 - Mode is manual. The chosen approach decides the execution path.
 - Do not switch modes mid-run unless the user explicitly redirects.
+- Under `supervised` delegation, a task is done only after the supervisor's own review passed — never on a worker's report alone.
 - Treat every `tdd_target` as required RED-first behavior, never optional guidance.
 - Treat every `review_mode` as required validation routing, never optional metadata.
 - Keep an operator-visible execution board in the conversation so progress is obvious.
@@ -98,7 +101,7 @@ Skipping an advisor when its trigger fires must be justified in the conversation
 
 ## 8. Shared upkeep after each completed unit
 
-After each completed task or wave:
+After each completed task or wave (the supervising run does this; workers never write these files):
 
 - update `PLAN.md` status
 - append a concise execution log in `PLAN.md`
@@ -146,7 +149,7 @@ Record a reason for every unmet or blocked item in `IMPLEMENTATION-NOTES.md`.
 Before reporting back:
 
 - remove empty sections from `IMPLEMENTATION-NOTES.md`
-- ensure **Execution mode** reflects the mode actually used
+- ensure **Execution mode** reflects the mode and delegation policy actually used, and lists every escalation
 - ensure **Sanity checks** lists only commands actually run
 - ensure **Remaining work** matches any unmet or blocked criteria
 - set `SPEC.md` frontmatter `status: implemented`
@@ -159,6 +162,7 @@ Summarize:
 
 - implementation status
 - validation results
+- escalations, when any task climbed the ladder
 - key deviations or surprises
 - acceptance-criteria status
 - blocked tasks needing input

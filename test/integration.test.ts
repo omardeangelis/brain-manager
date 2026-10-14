@@ -724,7 +724,8 @@ describe("scan — project context", () => {
     expect(report.context.suggestedConfig).toEqual({
       version: 1,
       review: { mode: "none", location: "review-tree" },
-      paths: { techDebt: "brain/tech-debt", reviews: "brain/review", personas: null }
+      paths: { techDebt: "brain/tech-debt", reviews: "brain/review", personas: null },
+      execution: { delegation: "supervised" }
     })
     expect(report.notes.join("\n")).toMatch(/config: review\.mode = "none" — CLAUDE\.md states review only on request/)
 

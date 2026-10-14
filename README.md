@@ -57,13 +57,14 @@ All commands take `--json` for machine/agent-friendly output.
 
 ## Project configuration
 
-`brain/brain.config.json` is project-owned (seed): `brain init` writes it from what it detects, `brain upgrade` only adds missing keys, `brain doctor` validates it, and `brain config get|set` reads and changes it. No file means every default, which is the 0.6.0 behavior.
+`brain/brain.config.json` is project-owned (seed): `brain init` writes it from what it detects, `brain upgrade` only adds missing keys, `brain doctor` validates it, and `brain config get|set` reads and changes it. No file means every default: the 0.6.0 review behavior, with supervised delegation.
 
 ```json
 {
   "version": 1,
   "review": { "mode": "total", "location": "spec-folder" },
-  "paths": { "techDebt": "brain/tech-debt", "reviews": "brain/review", "personas": null }
+  "paths": { "techDebt": "brain/tech-debt", "reviews": "brain/review", "personas": null },
+  "execution": { "delegation": "supervised" }
 }
 ```
 
@@ -74,6 +75,7 @@ All commands take `--json` for machine/agent-friendly output.
 | `paths.techDebt` | repo-relative dir | `brain/tech-debt` | the tech-debt store, one page per spec |
 | `paths.reviews` | repo-relative dir | `brain/review` | standalone reviews (and spec reviews under `review-tree`) |
 | `paths.personas` | repo-relative file, or `null` | `null` | the project's personas page, read by `ux-advisor`, `create-spec` and `prototype` |
+| `execution.delegation` | `supervised` \| `inline` | `supervised` | who writes each task's code in `implement-spec` (below) |
 
 **Review modes.** Explicit `/adversarial-review` (or asking for a verifier pass) works in every mode; the mode only decides what the flows start on their own.
 
@@ -83,6 +85,8 @@ All commands take `--json` for machine/agent-friendly output.
 | `create-plan`: verifier on `PLAN.md` | runs | runs | offered |
 | `implement-spec`: `adversarial-review` before the acceptance audit | runs | offered | offered |
 | a `PLAN.md` task that lists review as a closing step | executed | offered | offered |
+
+**Execution delegation.** Under `supervised`, `implement-spec` acts as a supervisor in both execution modes. It writes each task's RED test, hands the task to one worker on the model tier the plan's `complexity` names (`low` → fast, `medium` → balanced, `high` → strongest; in Claude Code `haiku`, `sonnet`, inherited), and reviews the result itself. A failed review goes back to the same worker with a concrete fix. After two failures, a worker one tier up takes over; after that, the supervisor does it or reports a blocker. `inline` turns this off. `brain init --delegation inline` or `brain config set execution.delegation inline`.
 
 **Root router.** `AGENTS.md` is canonical. `brain link` promotes a lone `CLAUDE.md` (also when `AGENTS.md` is a symlink to it), links an identical one, and refuses to discard a differing one even with `--force`: init-brain merges its sections into `AGENTS.md` (you confirm the diff), then links it.
 
@@ -120,6 +124,12 @@ A user-facing spec with no prototype gets no `FLOW.md`; `create-spec` says no UX
 - **The `ui-review` reference skill** — the static-UI bar: one page per class (placement and geometry, widths and wrapping, contrast, focus-indicator visibility, target size and hit area, accessible-name markup, browser and device rendering), each with its rule source, what the project can override and the evidence that proves it; the seven tested probes, run through `agent-browser` with `bash <skillsDir>/ui-review/scripts/probe.sh …`; a fixture page with each probe's expected result; the driver traps; and the axe and device notes. Never downloads or installs anything during a review. The `ui-reviewer` agent and the UI pass of `adversarial-review` run on it. Like `design-engineering`, it is linked to its agent through the agent's `skills:` list, so `brain install-skill ui-review` and `brain upgrade --skill ui-review` bring `ui-reviewer` along. Your overrides (minimum width, target-size standard, supported engines and devices) live in `brain/chore/ui-review.md`.
 - **Five advisor subagents**, spawned by the spec-driven skills to verify reasoning off the orchestrator's context: `ux-advisor` (reviews the UX of the approved `prototype` winner in the browser and returns ranked decisions with evidence — see above), `ui-reviewer` (reviews the static UI of the same winner, in parallel with `ux-advisor`: measures with the `ui-review` probes, names the engine behind every finding, and returns ranked decisions with evidence; also on a live route you name), `design-engineer` (motion / interaction-craft advisor routed through `design-engineering`: motion budget and exact values for `create-plan`, `implement-spec`, and the `adversarial-review` motion-craft pass; standalone review, audit, opportunities, diagnosis, and library-pick modes), `adversarial-verifier` (clean-context quality gate → SHIP / DO NOT SHIP; it also runs the motion-craft and UI passes), and `review-classifier` (routes the `adversarial-review` pipeline).
 - **The `agent-browser` tool skill** — the upstream discovery stub, with its Apache-2.0 `LICENSE` next to it. The usage guide is served by the CLI itself: everything that drives the browser runs `agent-browser skills get core` first, so the guide always matches the installed version. The CLI is a separate `npm i -g agent-browser` (0.27.1 or later), which `ux-advisor`, `ui-reviewer` and the UI pass need; without it they run `DEGRADED`. Appium with the XCUITest driver is optional and adds Mobile Safari for the device checks; nothing installs it for you. A pre-existing project-specific copy of the skill is detected and never clobbered.
+
+## Release notes — unreleased
+
+- **Supervised delegation.** `implement-spec` no longer writes every task with the orchestrator's model. Each task goes to a worker on the tier its `complexity` names; the orchestrator writes the RED test, reviews every result itself, sends back concrete fixes, and escalates one tier after two failed reviews. It applies to `sequential` as well as `parallel`, and only the orchestrator writes `PLAN.md` and `IMPLEMENTATION-NOTES.md`. New config key `execution.delegation` (`supervised` default · `inline`), and `brain init --delegation`.
+- **Task complexity.** `swarm-plan` and `create-plan` rate every task `low` · `medium` · `high` with one rubric (the same vocabulary `review-classifier` uses for verifier passes). An older plan without ratings still runs: `implement-spec` rates the tasks before spawning.
+- **Worker brief.** `parallel-worker-brief.md` became `worker-brief.md`, shared by both modes and narrower: exact files, the RED test, the validation commands; no plan reading or codebase research for the worker. The dangling `.agents/subagents/manifest.mjs` reference is gone.
 
 ## Release notes — 0.7.0
 

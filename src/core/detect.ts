@@ -268,7 +268,8 @@ export const suggestConfig = (
     tree
       ? { key: "paths.reviews", value: review.reviewsDir, reason: `existing review tree at ${review.reviewsDir}`, basis: "detected" }
       : { key: "paths.reviews", value: defaultConfig.paths.reviews, reason: "default", basis: "default" },
-    personasSuggestion(findings.personas)
+    personasSuggestion(findings.personas),
+    { key: "execution.delegation", value: defaultConfig.execution.delegation, reason: "default — tiered workers, supervised", basis: "default" }
   ]
   const value = (k: ConfigKey) => suggestions.find((s) => s.key === k)!.value
   const config: BrainConfig = {
@@ -281,6 +282,9 @@ export const suggestConfig = (
       techDebt: value("paths.techDebt")!,
       reviews: value("paths.reviews")!,
       personas: value("paths.personas")
+    },
+    execution: {
+      delegation: value("execution.delegation") as BrainConfig["execution"]["delegation"]
     }
   }
   return { config, suggestions: CONFIG_KEYS.map((k) => suggestions.find((s) => s.key === k)!) }

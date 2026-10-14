@@ -25,11 +25,12 @@ const left = <A>(e: Either.Either<A, string>): string => {
 }
 
 describe("defaults", () => {
-  it("match the SPEC table (0.6.0 behavior)", () => {
+  it("match the SPEC table (0.6.0 review behavior, supervised delegation)", () => {
     expect(defaultConfig).toEqual({
       version: 1,
       review: { mode: "total", location: "spec-folder" },
-      paths: { techDebt: "brain/tech-debt", reviews: "brain/review", personas: null }
+      paths: { techDebt: "brain/tech-debt", reviews: "brain/review", personas: null },
+      execution: { delegation: "supervised" }
     })
   })
 
@@ -49,6 +50,11 @@ describe("decodeConfig", () => {
     expect(config.review).toEqual({ mode: "none", location: "spec-folder" })
     expect(config.paths).toEqual({ techDebt: "brain/tech-debt", reviews: "brain/review", personas: "brain/personas.md" })
     expect(config.version).toBe(1)
+    expect(config.execution).toEqual({ delegation: "supervised" })
+  })
+
+  it("rejects an unknown delegation mode, naming the key", () => {
+    expect(left(decodeConfig(JSON.stringify({ execution: { delegation: "auto" } })))).toMatch(/execution\.delegation/)
   })
 
   it("rejects an unknown review mode, naming the key", () => {
@@ -82,11 +88,11 @@ describe("mergeMissing", () => {
     // only the absent keys came from detection
     expect(resolved.review.location).toBe("review-tree")
     expect(resolved.paths.personas).toBe("brain/personas.md")
-    expect(added).toEqual(["review.location", "paths.reviews", "paths.personas"])
+    expect(added).toEqual(["review.location", "paths.reviews", "paths.personas", "execution.delegation"])
   })
 
   it("keeps a present null and keys the CLI does not know", () => {
-    const existing = { version: 1, review: { mode: "total", location: "spec-folder" }, paths: { techDebt: "brain/tech-debt", reviews: "brain/review", personas: null }, custom: { x: 1 } }
+    const existing = { version: 1, review: { mode: "total", location: "spec-folder" }, paths: { techDebt: "brain/tech-debt", reviews: "brain/review", personas: null }, execution: { delegation: "inline" }, custom: { x: 1 } }
     const { config, added } = mergeMissing(existing, detected)
     expect(added).toEqual([])
     expect(config).toBe(existing)
@@ -104,6 +110,7 @@ describe("setKey", () => {
   it("sets a valid value", () => {
     const next = right(setKey({ version: 1 }, "review.mode", "none"))
     expect(withDefaults(next).review.mode).toBe("none")
+    expect(withDefaults(right(setKey(next, "execution.delegation", "inline"))).execution.delegation).toBe("inline")
   })
 
   it("rejects an unknown key, listing the known keys", () => {
@@ -116,6 +123,7 @@ describe("setKey", () => {
     expect(left(setKey({}, "review.mode", "bad"))).toMatch(/allowed: total, plan, none/)
     expect(left(setKey({}, "review.location", "nowhere"))).toMatch(/allowed: spec-folder, review-tree/)
     expect(left(setKey({}, "paths.techDebt", "/abs"))).toMatch(/repo-relative/)
+    expect(left(setKey({}, "execution.delegation", "auto"))).toMatch(/allowed: supervised, inline/)
   })
 
   it("accepts null for personas and drops trailing slashes on paths", () => {
