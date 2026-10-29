@@ -64,6 +64,7 @@ That means `implement-spec` itself owns all of the following in parallel mode:
 8. **Gate — `review.mode` ∈ {total}:** before the acceptance audit, run the **`adversarial-review`** skill on the implementation (case B) as the independent quality gate and resolve any BLOCKER it reports (see `## Required Advisor Agents`). — otherwise offer it in one line and continue.
 9. If `SPEC.md` cites a `prototype` surface (path + route), delete that folder and its dev-only route as part of finalization — the winner is now implemented (the prototype skill's Hard Rule 5) — and record the removal in `IMPLEMENTATION-NOTES.md`.
 10. Finish with the shared acceptance audit and spec finalization contract.
+11. Propose the feature improvements the run noticed (lifecycle §13): explain each, and record in `brain/feature-improvement/<domain>/<spec>.md` only the ones the user accepts.
 
 ## Mode selection
 
@@ -88,7 +89,7 @@ Delegation is independent of the mode: the mode decides how many tasks run at on
 - each task goes to one worker on the tier its `complexity` names (`low` → fast, `medium` → balanced, `high` → strongest)
 - you write the RED contract first, review every result yourself, and send back a concrete fix proposal when it fails
 - after two failed reviews, a worker one tier up takes the task; after that, you do it or report the blocker
-- only you write `PLAN.md`, `IMPLEMENTATION-NOTES.md`, and tech debt
+- only you write `PLAN.md`, `IMPLEMENTATION-NOTES.md`, tech debt, and feature improvements
 
 `inline` turns this off: you execute `sequential` tasks yourself. The full contract is [references/delegation.md](references/delegation.md).
 

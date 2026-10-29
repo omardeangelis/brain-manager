@@ -108,6 +108,30 @@ describe("fresh init — claude (skills-capable + agent-capable)", () => {
     expect(run(["doctor"], dir).code).toBe(0)
   })
 
+  it("scaffolds the feature-improvement store; doctor requires it and upgrade installs it on an older brain", () => {
+    const dir = freshDir()
+    expect(run(["init", "--providers", "claude"], dir).code).toBe(0)
+    const keep = "brain/feature-improvement/.gitkeep"
+    expect(fs.existsSync(path.join(dir, keep))).toBe(true)
+    expect(fileRole(readManifest(dir), keep)).toBe("seed")
+
+    // A brain from before the store: no folder, no manifest entry.
+    fs.rmSync(path.join(dir, "brain", "feature-improvement"), { recursive: true })
+    const manifestPath = path.join(dir, "brain", ".brain-manifest.json")
+    const manifest = readManifest(dir)
+    manifest.files = manifest.files.filter((f: any) => f.path !== keep)
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+
+    const before = run(["doctor", "--json"], dir)
+    expect(before.code).toBe(1)
+    expect(JSON.parse(before.stdout).lines).toContainEqual({ path: "brain/feature-improvement/", status: "missing" })
+
+    expect(run(["upgrade"], dir).code).toBe(0)
+    expect(fs.existsSync(path.join(dir, keep))).toBe(true)
+    expect(fileRole(readManifest(dir), keep)).toBe("seed")
+    expect(run(["doctor"], dir).code).toBe(0)
+  })
+
   it("`init --providers claude` installs `ui-review` with `scripts/probe.sh` and `fixture/index.html`", () => {
     const dir = freshDir()
     expect(run(["init", "--providers", "claude"], dir).code).toBe(0)

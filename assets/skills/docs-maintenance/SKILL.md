@@ -11,7 +11,7 @@ description: Ingest a spec folder into the brain domain layer by extracting and 
 - **Entrypoint type:** public entrypoint
 - **Upstream:** reviewed or implemented spec folder, or code changes that may require `brain/` updates
 - **Delegates to:** internal flow-writing phase, then internal concept-writing phase
-- **Downstream:** synced brain indexes, ingest metadata, brain log, and any required updates to the tech-debt store (`<techDebt>/`)
+- **Downstream:** synced brain indexes, ingest metadata, brain log, any required updates to the tech-debt store (`<techDebt>/`), and the status of the feature-improvement entries an ingested spec took up (`brain/feature-improvement/`)
 - **Entry conditions:** resolved spec folder for ingest work, or a concrete docs-affecting code change
 - **Stop conditions:** ingest bookkeeping complete, required docs updates complete, failures reported honestly
 
@@ -148,6 +148,8 @@ Also populate its `links` array with every flow and concept page written in Step
 
 If a sibling `REPORT.md` was found in Step 2 with `ingested: false`, process it now per [references/review-ingest.md](references/review-ingest.md): fold its durable findings into `<techDebt>/<domain>/<spec>.md`, backlink `[[<folder>/REPORT]]` into the flow/concept pages it bears on (and into the IMPLEMENTATION-NOTES `links`), then set its frontmatter `ingested: true` / `last_ingested: YYYY-MM-DD`. Never set `ingested: true` on a review report any other way.
 
+**Feature improvements.** When `IMPLEMENTATION-NOTES.md` is present, set each `brain/feature-improvement/` entry whose **Spec** line links this spec from `planned` to `done`, and bump the page's `updated`. Never add an entry here: an improvement candidate in `IMPLEMENTATION-NOTES.md` → Out of Scope Observations that has no outcome yet is proposed to the user (`brain/AGENTS.md` → Relationship to the feature-improvement store) and recorded only when they accept it.
+
 ### Step 8: Log entry
 
 Append to `brain/log.md` (cap at 50 entries; drop oldest when over):
@@ -199,6 +201,7 @@ Full contract: [references/review-ingest.md](references/review-ingest.md). In sh
 - Ingest an `IMPLEMENTATION-NOTES.md` with `ingested: true` — treat it as already reflected in domain pages
 - Ingest a `REPORT.md` with `ingested: true` — treat its findings as already folded into the tech-debt store
 - Synthesize review findings into flow or concept pages — reviews fold into the tech-debt store and backlinks only
+- Write a `brain/feature-improvement/` entry the user has not accepted — propose it instead
 - Proceed to concept writing when a flow write has failed
 - Document speculative or future-state features as current truth
 - Put agent task instructions inside human-facing docs pages

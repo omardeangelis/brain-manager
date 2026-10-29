@@ -32,7 +32,7 @@ const REQUIRED_FILES = [
   "brain/log.md"
 ]
 /** Plus the tech-debt dir, which comes from the config (`paths.techDebt`). */
-const REQUIRED_DIRS = ["brain/raw", "brain/specs", "brain/domains", "brain/chore"]
+const REQUIRED_DIRS = ["brain/raw", "brain/specs", "brain/domains", "brain/chore", "brain/feature-improvement"]
 
 export const doctorCommand = Command.make("doctor", { json }, (opts) =>
   Effect.gen(function* () {

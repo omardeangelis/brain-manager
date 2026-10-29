@@ -13,8 +13,10 @@ Two rules hold throughout:
 
 ## Where the reviews come from
 
-- **In context:** `prototype` Phase 6 opened this run right after the reviews.
-- **`UX-REVIEW.md` and `UI-REVIEW.md`:** the user stopped between the reviews and the spec, so `prototype` saved each one next to the surviving variant (`UI-REVIEW.md` next to `UX-REVIEW.md`). Read them from the cited prototype path. They are deleted with the prototype surface.
+- **In context:** `prototype` Phase 6 opened this run right after the reviews and, when the iterate loop changed the winner, after the user approved it at the approval gate.
+- **`UX-REVIEW.md` and `UI-REVIEW.md`:** the user stopped between the reviews and the spec, so `prototype` saved each one next to the surviving variant (`UI-REVIEW.md` next to `UX-REVIEW.md`). Read them from the cited prototype path. When the iterate loop applied changes, `CHANGES.md` sits beside them: the applied changes with their exact values, and whether the user approved the changed winner. They are all deleted with the prototype surface.
+
+**A changed winner needs the user's approval before the spec.** When the iterate loop applied changes and the user has not approved them (no approval in this run, or `CHANGES.md` says `approved: no`), show the winner's route and each change with its exact values before → after, and wait. Approved changes go to the Decision Log; a change the user reverts goes back to its review as a decision, and stays out of the Decision Log.
 
 Either review can be missing: `prototype` skips an agent that is not installed. Fold in the one you have.
 
@@ -27,7 +29,7 @@ Number the acceptance criteria (`AC1`, `AC2`, …) so `FLOW.md` can cite them.
 | Review section | Goes to |
 |---|---|
 | Verdict | one line in Context: the verdict and the review date |
-| Prototype changes (applied in the iterate loop) | Decision Log, each with its exact values: decisions already taken, like the winner's own |
+| Prototype changes (applied in the iterate loop and approved by the user) | Decision Log, each with its exact values: decisions already taken, like the winner's own |
 | Decisions | one acceptance criterion each, from the review's criterion text. P0 and P1 stay unless the user overrules them; a P2 the user drops goes to Non-Goals |
 | Task accessibility fixes | **one** criterion that lists them, one line each with its location |
 | Outcomes and states | each `missing` or `not reachable` row with a consequence is already a decision. A row whose outcome is a business fact nobody has decided becomes an open question |
@@ -49,7 +51,7 @@ Do not copy anything else from the review into the spec: the evidence stays in t
 | Mechanical fixes | **one** criterion that lists them, one line each with its location |
 | Not verified on device | Constraints ("verified manually on device: …"), each with its manual check, so the plan schedules them |
 | Open questions | Open Questions, each row with its default |
-| Prototype changes (applied in the iterate loop) | Decision Log, each with its exact values |
+| Prototype changes (applied in the iterate loop and approved by the user) | Decision Log, each with its exact values |
 | Checked and clean, Not tested | not copied; the evidence stays in the review |
 
 UI criteria keep the review's width range, state and engine, so the plan and the review pipeline can check them on screen.
