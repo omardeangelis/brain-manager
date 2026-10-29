@@ -8,7 +8,7 @@ updated: __TODAY__
 
 # Brain — Master Map
 
-Entry point of the knowledge base. Links the work areas: chore (informal planning), specs (PM-authored), domains (synthesized by `docs-maintenance`), the tech-debt store (`<techDebt>`, persistent drift), and the project config (`brain.config.json`).
+Entry point of the knowledge base. Links the work areas: chore (informal planning), specs (PM-authored), domains (synthesized by `docs-maintenance`), the tech-debt store (`<techDebt>`, persistent drift), the feature-improvement store (`feature-improvement/`, improvements the user accepted), and the project config (`brain.config.json`).
 
 ## Chore (planning material)
 
@@ -25,6 +25,12 @@ _empty_
 _empty_
 
 ## Tech debt
+
+_empty_
+
+## Feature improvements
+
+> One page per feature under `feature-improvement/<domain>/`. Entries are proposed by the suite and recorded only when the user accepts them (see `AGENTS.md` → `feature-improvement/`).
 
 _empty_
 

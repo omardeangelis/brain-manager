@@ -95,6 +95,7 @@ Skipping an advisor when its trigger fires must be justified in the conversation
 - Treat every `review_mode` as required validation routing, never optional metadata.
 - Keep an operator-visible execution board in the conversation so progress is obvious.
 - Keep scope discipline. Out-of-scope findings go to `IMPLEMENTATION-NOTES.md`, not silent scope creep.
+- An improvement to the feature — something it could do better than the spec asks, neither drift nor a defect — is a candidate, not work: note it under **Out of Scope Observations** as `improvement candidate` with its evidence, keep going, and propose it in the final report (§13). Nothing reaches `brain/feature-improvement/` during execution.
 - If backlog sync is part of the run, keep epic and story bodies product-facing.
 - Execution-time backlog sync may use comments, links, native status, and native relations.
 - Never rewrite epic or story bodies with task ids, TDD targets, validation commands, or file lists.
@@ -167,3 +168,4 @@ Summarize:
 - acceptance-criteria status
 - blocked tasks needing input
 - whether the spec-linked tech-debt file was created or updated
+- the feature-improvement candidates, each explained per `brain/AGENTS.md` → Relationship to the feature-improvement store (what you saw and where, the improvement, who gains, its size), with one record-or-skip question per candidate. Record the accepted ones in `brain/feature-improvement/<domain>/<spec>.md`, then mark each candidate in `IMPLEMENTATION-NOTES.md` `→ recorded` or `→ skipped`
