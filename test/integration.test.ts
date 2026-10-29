@@ -1335,6 +1335,12 @@ describe("README and EVAL — the shipped counts and lists", () => {
       expect(notes, needle).toContain(needle)
     }
 
+    // The 0.9.0 release notes name the gate, the store, its saved state and the upgrade.
+    const notes090 = section(readme, "## Release notes — 0.9.0")
+    for (const needle of ["Approval gate", "`brain/feature-improvement/<domain>/<spec>.md`", "`CHANGES.md`", "Upgrading from 0.8"]) {
+      expect(notes090, needle).toContain(needle)
+    }
+
     // The 0.8.0 release notes name the config key, the ratings, the shared brief and the upgrade.
     const notes080 = section(readme, "## Release notes — 0.8.0")
     for (const needle of ["`execution.delegation`", "`complexity`", "`worker-brief.md`", "Upgrading from 0.7"]) {
