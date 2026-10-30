@@ -76,6 +76,8 @@ describe("fresh init — claude (skills-capable + agent-capable)", () => {
     expect(fs.existsSync(path.join(dir, ".agents", "skills", "create-spec", "SKILL.md"))).toBe(true)
     expect(fs.existsSync(path.join(dir, ".agents", "skills", "prototype", "SKILL.md"))).toBe(true)
     expect(fs.existsSync(path.join(dir, ".agents", "skills", "prototype", "PICKER.md"))).toBe(true)
+    expect(fs.existsSync(path.join(dir, ".agents", "skills", "prototype", "STATE-SWEEP.md"))).toBe(true)
+    expect(fs.existsSync(path.join(dir, ".agents", "skills", "prototype", "scripts", "state-report.mjs"))).toBe(true)
     expect(fs.existsSync(path.join(dir, ".agents", "skills", "design-engineering", "SKILL.md"))).toBe(true)
     expect(fs.existsSync(path.join(dir, ".agents", "skills", "design-engineering", "references", "standards.md"))).toBe(true)
     expect(fs.existsSync(path.join(dir, ".agents", "agents", "ux-advisor.md"))).toBe(true)
@@ -1352,5 +1354,79 @@ describe("README and EVAL — the shipped counts and lists", () => {
     const evalInit = lineOf(evalMd, "| Claude (skills + agents) |")
     expect(evalInit).toContain(`${skills} skills`)
     expect(evalInit).toContain(`${agents} agents`)
+  })
+})
+
+describe("prototype state sweep report", () => {
+  const SCRIPT = path.join(REPO_ROOT, "assets", "skills", "prototype", "scripts", "state-report.mjs")
+  const STATES = `# State sweep: Archive
+
+Winner: \`Calm\` at \`/prototypes/archive\` · 2026-10-30
+approved: no
+
+## States
+| id | Action or region | State | Description | Real trigger | Source | In the prototype | Widths | Open | Screenshots |
+|---|---|---|---|---|---|---|---|---|---|
+| S1 | Archive | success | The project leaves the list. | → 200 | \`api.ts:30\` | present | 1440 | \`?state=S1\` | \`states/S1-1440.png\` |
+| S2 | Archive | conflict | Someone archived it first. | → 409 | \`api.ts:41\` | built | 1440, 390 | \`?state=S2\` | \`states/S2-1440.png\`, \`states/S2-390.png\` |
+| S3 | Archive | session expired | The person lands on sign-in. | → 401 | \`client.ts:88\` | real only: needs the real auth flow | — | — | — |
+
+## Decisions
+- **S2**: the row names the teammate.
+- **All errors (S1–S9)**: no red.
+
+## Needs you
+| # | Question | Pick | Taken by |
+|---|---|---|---|
+| 1 | Does the conflict (S2) name the teammate? | Yes | user, step 2 |
+
+## Real only
+- **S3** session expired: the spec decides.
+
+## Dropped
+_None._
+`
+  const report = (args: Array<string>): string => {
+    const dir = freshDir()
+    fs.writeFileSync(path.join(dir, "STATES.md"), STATES)
+    const out = execFileSync("node", [SCRIPT, dir, ...args], { encoding: "utf8" }).trim()
+    expect(out).toBe(path.join(dir, "STATES.html"))
+    return fs.readFileSync(out, "utf8")
+  }
+
+  it("renders each state with its description, screenshots, decision and Needs you, and links the prototype", () => {
+    const html = report(["--base", "http://localhost:5173/"])
+    expect(html).toContain('href="http://localhost:5173/prototypes/archive"')
+    expect(html).toContain('href="http://localhost:5173/prototypes/archive?state=S2"')
+    const s2 = html.slice(html.indexOf('id="S2"'), html.indexOf("</section>", html.indexOf('id="S2"')))
+    expect(s2).toContain("Someone archived it first.")
+    expect(s2).toContain('src="states/S2-1440.png"')
+    expect(s2).toContain('class="shot phone" href="states/S2-390.png"')
+    expect(s2).toContain("the row names the teammate.")
+    expect(s2).toContain("Does the conflict (S2) name the teammate?")
+    expect(s2).toContain('<span class="tag built" tabindex="0">Alternative state<span class="tip end" role="tooltip">')
+    // A present row reads Prototype; a real-only row is listed, not drawn.
+    const s1 = html.slice(html.indexOf('id="S1"'), html.indexOf("</section>", html.indexOf('id="S1"')))
+    expect(s1).toContain('<span class="tag present" tabindex="0">Prototype<span class="tip end" role="tooltip">Present, and reachable by interacting with the prototype.</span>')
+    expect(html).not.toContain('id="S3"')
+    expect(html).toContain("needs the real auth flow")
+    // A decision naming more than three states is shared, at the top.
+    expect(html.indexOf("no red.")).toBeLessThan(html.indexOf('id="S1"'))
+    expect(html).not.toContain("DEGRADED")
+    // The legend explains every label before the first state.
+    const legend = html.slice(html.indexOf('<section class="legend"'), html.indexOf("</section>", html.indexOf('<section class="legend"')))
+    for (const label of ["Prototype", "Alternative state", "Real system only", "approved", "Decision taken", "Needs you"]) {
+      expect(legend, label).toContain(`${label}<span class="tip`)
+    }
+    expect(html.indexOf('<section class="legend"')).toBeLessThan(html.indexOf('id="S1"'))
+  })
+
+  it("labels the page in Italian with --lang it, and keeps links relative without --base", () => {
+    const html = report(["--lang", "it"])
+    expect(html).toContain('<html lang="it">')
+    expect(html).toContain("Apri il prototipo")
+    expect(html).toContain("Presente e osservabile interagendo con il prototipo.")
+    expect(html).toContain(">Stato alternativo<")
+    expect(html).toContain('href="/prototypes/archive?state=S1"')
   })
 })

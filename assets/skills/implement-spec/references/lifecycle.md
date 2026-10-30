@@ -45,8 +45,9 @@ Read, in this order:
 1. `brain/AGENTS.md`, then `brain/brain.config.json` (keys in `brain/AGENTS.md` → Project configuration). If it is absent, use the defaults listed there.
 2. `brain/specs/<domain>/<spec>/SPEC.md` — its acceptance criteria are the contract.
 3. `brain/specs/<domain>/<spec>/FLOW.md` if present — the flow map `create-spec` wrote from the `ux-advisor` review of the prototype. It locates the user-observable criteria (states, accessibility, persona dependencies) in the flow; for a task touching a UI surface, read the rows that cite its criteria. An older `FLOW.md` (Error paths · Edge cases) is read the same way, against the `SPEC.md` criteria.
-4. `brain/specs/<domain>/<spec>/PLAN.md`
-5. `brain/specs/<domain>/<spec>/IMPLEMENTATION-NOTES.md` if present
+4. `brain/specs/<domain>/<spec>/STATES.md` if present — the state matrix `create-spec` wrote from a state sweep the user approved on the prototype. Every row is a state the user has already seen designed; for a task touching a UI surface, its rows are part of the task's acceptance surface, at the widths they name. When a task makes a state reachable on the real surface (the fixture, seed or mock the plan named), write that into the row's **Reach it** cell in the same update as `PLAN.md`.
+5. `brain/specs/<domain>/<spec>/PLAN.md`
+6. `brain/specs/<domain>/<spec>/IMPLEMENTATION-NOTES.md` if present
 
 If package or framework behavior matters, inspect source with your code-search tool (or Context7 for library docs / web search) before guessing.
 
@@ -156,6 +157,7 @@ Before reporting back:
 - set `SPEC.md` frontmatter `status: implemented`
 - set `PLAN.md` `**Status:** Complete` when that line exists
 - if `SPEC.md` cites a `prototype` surface (path + route), delete it — the winner is implemented now (prototype Hard Rule 5) — and note the removal in `IMPLEMENTATION-NOTES.md`
+- if the spec folder has a `STATES.md`, no **Reach it** cell still points at the prototype: each says how to open the state on the real surface, or `real only` with the reason. List any state left unreachable under **Remaining work**
 
 ## 13. Final report shape
 
