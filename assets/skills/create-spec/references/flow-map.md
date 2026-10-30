@@ -1,6 +1,6 @@
-# The prototype reviews and the `FLOW.md` map
+# The prototype reviews, the `FLOW.md` map and the `STATES.md` matrix
 
-Use this reference when the spec starts from an approved `prototype` winner that `ux-advisor`, `ui-reviewer`, or both reviewed. `prototype` Phase 6 runs them in parallel on the winner. One owner per concern:
+Use this reference when the spec starts from an approved `prototype` winner that `ux-advisor`, `ui-reviewer`, or both reviewed, or whose states the user approved in the state sweep (`prototype/STATE-SWEEP.md`). `prototype` Phase 6 runs them in parallel on the winner. One owner per concern:
 
 > UX → `ux-advisor` · static UI of the rendered page → `ui-reviewer` (bar and probes: the `ui-review` skill) · motion and interaction craft → `design-engineer` (`design-engineering`)
 
@@ -71,6 +71,43 @@ Both reviewers can report the same defect: `ux-advisor` by what the person canno
 ## `FLOW.md` and UI criteria
 
 `FLOW.md` stays a flow map: UI criteria need no row in it. A merged criterion is cited where its UX consequence sits in the flow. Never add a row for a width range, a ratio or a focus ring alone.
+
+## The state sweep: `STATES.md`
+
+When the user ran the optional state sweep, `prototype` left `STATES.md` next to the winner: every state the real feature can show, the decisions taken on the states it built, the user's Needs you picks, and the approval line. The user approved it at the state gate before the reviews ran, so its states are decisions already taken, like the winner's own values.
+
+**An unapproved sweep needs the user first.** When it reads `approved: no`, show the state gate (`prototype/STATE-SWEEP.md` → Step 5) and wait. A state the user drops there goes to Non-Goals.
+
+| `STATES.md` section | Goes to |
+|---|---|
+| States (`present` and `built` rows) | **one acceptance criterion per action or region**, listing each of its states with what the person sees and can do next, from the row's Description. Do not write one criterion per state |
+| Decisions | Decision Log, each with its exact values: decisions already taken |
+| Needs you | Decision Log, with the pick and who took it |
+| Real only | a criterion when the decision is known (the user's pick, or a review decision on it); otherwise an Open Question with its default |
+| Dropped | Non-Goals, with the user's reason |
+
+**One state, one criterion.** A review decision about a state the sweep already covers amends that state's line in its criterion; it never adds a second criterion for the same state. A state a reviewer reports as missing from `STATES.md` becomes a line in its region's criterion and a new row in the matrix (next id, `Source` from the review's code line).
+
+Then write the matrix at `brain/specs/<domain>/<spec>/STATES.md`. Like `FLOW.md`, it is a map, not a second contract: every row cites the criterion that holds it. It outlives the prototype, which `implement-spec` deletes when the implementation lands, so it carries no screenshot paths.
+
+```markdown
+# State matrix: <feature>
+
+> Map of [[specs/<domain>/<spec>/SPEC]]. Every state cites an acceptance criterion there; `SPEC.md` is the contract.
+> Source: state sweep of the prototype at `<path>` (`<route>`), approved by the user on <date>.
+
+| id | Action or region | State | Real trigger | Source | Widths | Criterion | Reach it |
+|---|---|---|---|---|---|---|---|
+| S1 | Archive | success | `POST /projects/:id/archive` → 200 | `api/projects.ts:30` | 1440, 390 | AC5 | prototype `?state=S1` |
+| S4 | Archive | conflict: a teammate archived it first | → 409 `ConflictError` | `api/projects.ts:41` | 1440, 390 | AC5 | prototype `?state=S4` |
+| S9 | Archive | session expired mid-request | → 401, redirect to sign-in | `api/client.ts:88` | 1440 | open question 2 | real only |
+```
+
+Fill rules:
+
+- Keep the sweep's ids, so the matrix, the review and the catalogue name the same state the same way.
+- **Reach it** says how to open the state. Until the implementation lands it is the prototype's `?state=<id>`, or `real only`. `create-plan` plans a way to reach each state on the real surface (a fixture, a seed, a mocked response), and `implement-spec` writes it here as soon as the task that makes the state reachable lands, so the UI pass of `adversarial-review` can open every state on the real route.
+- A row with no criterion is a defect: add the criterion to `SPEC.md` or delete the row.
 
 ## Rejected findings
 

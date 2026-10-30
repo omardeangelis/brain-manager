@@ -59,7 +59,7 @@ That means `implement-spec` itself owns all of the following in parallel mode:
    - Read `references/parallel.md` for wave-based worker execution.
 4. Read `references/delegation.md` and resolve `execution.delegation` (default `supervised`). Record the mode and the delegation policy under **Execution mode** in `IMPLEMENTATION-NOTES.md` before coding.
 5. Execute only the chosen mode. Do not mix modes inside one run.
-6. After each completed task or wave, update `PLAN.md`, `IMPLEMENTATION-NOTES.md`, and spec-linked tech debt (`<techDebt>/<domain>/<spec>.md`) before advancing.
+6. After each completed task or wave, update `PLAN.md`, `IMPLEMENTATION-NOTES.md`, spec-linked tech debt (`<techDebt>/<domain>/<spec>.md`), and the **Reach it** cells of `STATES.md` (when the spec folder has one) for the states the task made reachable, before advancing.
 7. If backlog sync is in scope, keep epic/story bodies product-facing and use native metadata or comments instead of execution handoff rewrites.
 8. **Gate — `review.mode` ∈ {total}:** before the acceptance audit, run the **`adversarial-review`** skill on the implementation (case B) as the independent quality gate and resolve any BLOCKER it reports (see `## Required Advisor Agents`). — otherwise offer it in one line and continue.
 9. If `SPEC.md` cites a `prototype` surface (path + route), delete that folder and its dev-only route as part of finalization — the winner is now implemented (the prototype skill's Hard Rule 5) — and record the removal in `IMPLEMENTATION-NOTES.md`.

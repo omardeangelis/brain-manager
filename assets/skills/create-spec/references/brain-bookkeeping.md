@@ -20,6 +20,7 @@ Use this reference after writing `SPEC.md`.
 ## [YYYY-MM-DD] spec | <spec title>
 - Created spec: [[specs/<domain>/<folder-name>/SPEC]]
 - Flow: [[specs/<domain>/<folder-name>/FLOW]]   <!-- include only if a FLOW.md map was written from a ux-advisor review -->
+- States: [[specs/<domain>/<folder-name>/STATES]]   <!-- include only if a STATES.md matrix was written from an approved state sweep -->
 - Domain: <domain>
 - Status: Draft
 ```

@@ -58,7 +58,8 @@ Verify the spec has `domain:` in frontmatter. Error if absent.
 Read in order:
 1. `SPEC.md` — mandatory. If missing, stop and report.
 2. `FLOW.md` — optional. The flow map `create-spec` wrote from the `ux-advisor` review of an approved prototype. When present, it is the primary, pre-structured source for flow extraction (Step 3); prefer it over re-deriving flows from acceptance criteria, and reconcile it with `IMPLEMENTATION-NOTES.md` deviations where they conflict. Its requirements cite `SPEC.md` acceptance criteria; the spec stays the source of truth.
-3. `IMPLEMENTATION-NOTES.md` — optional. If present, flows and concepts become `status: implemented`. If absent, status is `proposed`.
+3. `STATES.md` — optional. The state matrix `create-spec` wrote from a state sweep the user approved on the prototype. When present, use it with `FLOW.md` → States as the list of branch and recovery states for the flow page: each row cites its criterion. Leave its **Reach it** cells out of the flow page: they are test plumbing, not user-observable flow.
+4. `IMPLEMENTATION-NOTES.md` — optional. If present, flows and concepts become `status: implemented`. If absent, status is `proposed`.
    - Check its frontmatter. If it lacks frontmatter (no YAML block), add it now before continuing:
      ```yaml
      ---
@@ -74,7 +75,7 @@ Read in order:
      ---
      ```
 
-4. `REPORT.md` — optional. The spec's review in its review folder: `brain/specs/<domain>/<spec>/REPORT.md` under `review.location: spec-folder`, `<reviews>/<domain>/<spec>/REPORT.md` under `review-tree`. When present with `ingested: false`, it is a supplementary source like `IMPLEMENTATION-NOTES.md`: its confirmed durable findings go to the tech-debt store and its backlink is added to the pages written below. Do **not** turn review findings into flow or concept pages. Process it per `## Secondary: Review Ingest` (Steps 7–8 mark and log it).
+5. `REPORT.md` — optional. The spec's review in its review folder: `brain/specs/<domain>/<spec>/REPORT.md` under `review.location: spec-folder`, `<reviews>/<domain>/<spec>/REPORT.md` under `review-tree`. When present with `ingested: false`, it is a supplementary source like `IMPLEMENTATION-NOTES.md`: its confirmed durable findings go to the tech-debt store and its backlink is added to the pages written below. Do **not** turn review findings into flow or concept pages. Process it per `## Secondary: Review Ingest` (Steps 7–8 mark and log it).
 
 Verify `brain/domains/<domain>/` exists with a `<domain>.md` index file. If the domain is missing, scaffold it first: create `brain/domains/<domain>/` with a `<domain>.md` domain map and a `<domain>-contract.md` (sections **Owns**, **Does Not Own**, **Invariants**), plus empty `concepts/`, `flows/`, and `decisions/` subfolders. Then continue.
 
