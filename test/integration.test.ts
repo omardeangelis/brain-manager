@@ -1337,6 +1337,12 @@ describe("README and EVAL — the shipped counts and lists", () => {
       expect(notes, needle).toContain(needle)
     }
 
+    // The 0.10.0 release notes name the sweep, its report, the gate, the matrix and the upgrade.
+    const notes0100 = section(readme, "## Release notes — 0.10.0")
+    for (const needle of ["State sweep", "`STATES.html`", "state-report.mjs", "The state gate", "`STATES.md` **matrix**", "Upgrading from 0.9"]) {
+      expect(notes0100, needle).toContain(needle)
+    }
+
     // The 0.9.0 release notes name the gate, the store, its saved state and the upgrade.
     const notes090 = section(readme, "## Release notes — 0.9.0")
     for (const needle of ["Approval gate", "`brain/feature-improvement/<domain>/<spec>.md`", "`CHANGES.md`", "Upgrading from 0.8"]) {
